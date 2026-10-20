@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#173d35">
+    <meta name="description" content="Request a book for pickup at Central Public Library.">
+    <title>Library pickup — Central Public Library</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./fulfillment.css">
+    <script src="./fulfillment.js" defer></script>
+  </head>
+  <body class="fulfillment-page" data-mode="pickup">
+    <header class="site-header">
+      <a class="brand" href="/#home" aria-label="Central Public Library home">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <span class="brand-name">Central <span>Public Library</span></span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation"><a href="/#catalog">Explore books</a><a href="/#visit">Visit</a></nav>
+      <a class="text-button" href="/#catalog">← Back to collection</a>
+    </header>
+    <main>
+      <section class="fulfillment-banner">
+        <p class="eyebrow eyebrow-light"><span></span> PICK UP IN PERSON</p>
+        <h1>A good book,<br><em>close to home.</em></h1>
+        <p>We'll get your request ready. Visit us after your library account shows it has been approved.</p>
+      </section>
+      <section class="fulfillment-main">
+        <a class="fulfillment-back" id="fulfillment-back" href="#">← Change fulfillment option</a>
+        <div class="fulfillment-book-card" id="fulfillment-book" aria-live="polite"><div class="fulfillment-loading">Loading your selected book...</div></div>
+        <div class="fulfillment-panel hidden" id="pickup-panel">
+          <div class="fulfillment-panel-heading"><span class="fulfillment-choice-icon" aria-hidden="true">⌖</span><div><p class="eyebrow">YOUR PICKUP LOCATION</p><h2>Collect it <em>here.</em></h2></div></div>
+          <div class="library-address-card">
+            <span class="address-pin" aria-hidden="true">⌖</span>
+            <div><h3 id="pickup-library-name">Central Public Library</h3><p id="pickup-library-address">100 Library Lane<br>Your City, ST 00000</p><a id="pickup-directions" href="https://maps.google.com/?q=public+library" target="_blank" rel="noreferrer">Get directions ↗</a></div>
+          </div>
+          <div class="pickup-hours"><strong>Opening hours</strong><span id="pickup-weekday-hours">Monday–Friday · 9:00 am–8:00 pm</span><span id="pickup-weekend-hours">Saturday · 10:00 am–5:00 pm · Sunday · 12:00 pm–4:00 pm</span></div>
+          <p class="fulfillment-note">Please wait for staff approval in your profile before travelling to collect your book. The address and hours above are sample details—confirm them with your library.</p>
+          <button class="button fulfillment-submit" id="pickup-submit" type="button">Request for library pickup <span aria-hidden="true">→</span></button>
+        </div>
+        <div class="fulfillment-success hidden" id="pickup-success" role="status">
+          <span class="success-mark" aria-hidden="true">✓</span><p class="eyebrow">REQUEST RECEIVED</p><h2>Your book is on its way<br><em>to the pickup shelf.</em></h2><p>Check your profile for the request status. Please wait for library approval before visiting.</p><a class="button" href="/profile.html">View my profile <span aria-hidden="true">→</span></a>
+        </div>
+        <p class="fulfillment-message hidden" id="fulfillment-message" role="status"></p>
+      </section>
+    </main>
+    <footer class="site-footer"><div class="footer-bottom"><span>© <span class="current-year"></span> Central Public Library</span><span>KNOWLEDGE IS FOR EVERYONE.</span><a href="/#home">HOME ↑</a></div></footer>
+  </body>
+</html>

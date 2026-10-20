@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#173d35">
+    <meta name="description" content="Central Public Library administration.">
+    <title>Library Admin — Central Public Library</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./admin.css">
+    <script src="./admin.js" defer></script>
+  </head>
+  <body class="admin-page">
+    <header class="site-header">
+      <a class="brand" href="/#home" aria-label="Central Public Library home">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <span class="brand-name">Central <span>Public Library</span></span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation"><a href="/#catalog">Explore books</a><a href="/profile.html">My profile</a></nav>
+      <a class="text-button" href="/">← Public website</a>
+    </header>
+    <main>
+      <section class="admin-banner">
+        <p class="eyebrow eyebrow-light"><span></span> LIBRARY OPERATIONS</p>
+        <h1>Behind every story,<br><em>a caring team.</em></h1>
+        <p>Manage your collection, library location, delivery requests, and community reports in one place.</p>
+      </section>
+
+      <section class="admin-main">
+        <div class="admin-login-card" id="admin-login-card">
+          <div class="admin-login-icon" aria-hidden="true">C</div>
+          <p class="eyebrow">STAFF ACCESS</p>
+          <h2>Administrator <em>sign in.</em></h2>
+          <p>Sign in with the administrator email and password configured for your library.</p>
+          <form id="admin-login-form">
+            <label>Email address<input name="email" type="email" autocomplete="username" required></label>
+            <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+            <p class="admin-message" id="admin-login-message" role="status"></p>
+            <button class="button" type="submit">Sign in to admin <span aria-hidden="true">→</span></button>
+          </form>
+          <a class="admin-back-link" href="/">← Return to the library</a>
+        </div>
+
+        <div class="admin-dashboard hidden" id="admin-dashboard">
+          <div class="admin-welcome">
+            <div><p class="eyebrow">ADMINISTRATOR CONSOLE</p><h2>Welcome, <em id="admin-name">librarian.</em></h2><p>Signed in as <span id="admin-email"></span></p></div>
+            <button class="text-button" id="admin-logout" type="button">Log out ↗</button>
+          </div>
+          <div class="admin-stat-grid" id="admin-stats"></div>
+
+          <section class="admin-section" aria-labelledby="location-title">
+            <div class="admin-section-heading"><div><p class="eyebrow">PUBLIC-FACING INFORMATION</p><h2 id="location-title">Library location &amp; delivery</h2><p>Changes update the website, pickup page, and member delivery choices.</p></div></div>
+            <form class="admin-settings-form" id="library-settings-form">
+              <label>Library name<input name="name" required maxlength="120"></label>
+              <label>Street address<input name="addressLine1" required maxlength="200"></label>
+              <label>Address line 2<input name="addressLine2" maxlength="200"></label>
+              <label>City<input name="city" required maxlength="100"></label>
+              <label>State / region<input name="region" required maxlength="100"></label>
+              <label>Postal code<input name="postalCode" required maxlength="20"></label>
+              <label>Country<input name="country" maxlength="100"></label>
+              <label>Public contact email<input name="email" type="email" required maxlength="150"></label>
+              <label>Weekday hours<input name="weekdayHours" required maxlength="100" placeholder="9:00 am–8:00 pm"></label>
+              <label>Saturday hours<input name="saturdayHours" required maxlength="100"></label>
+              <label>Sunday hours<input name="sundayHours" required maxlength="100"></label>
+              <label class="delivery-toggle"><input name="deliveryEnabled" type="checkbox"><span><strong>Home delivery enabled</strong><small>Disable to offer pickup only.</small></span></label>
+              <div class="admin-form-actions"><p class="admin-message" id="settings-message" role="status"></p><button class="button" type="submit">Save location &amp; delivery <span aria-hidden="true">→</span></button></div>
+            </form>
+          </section>
+
+          <section class="admin-section" aria-labelledby="catalog-title">
+            <div class="admin-section-heading"><div><p class="eyebrow">COLLECTION MANAGEMENT</p><h2 id="catalog-title">Add &amp; update books</h2><p>Edit book details and cover URLs; changes appear in the public catalog and search.</p></div></div>
+            <form class="admin-add-book" id="admin-add-book-form">
+              <label>Title<input name="title" required maxlength="300" placeholder="Book title"></label>
+              <label>Author<input name="author" maxlength="200" placeholder="Author"></label>
+              <label>Year<input name="year" type="number" min="1" max="2100" placeholder="Year"></label>
+              <label class="admin-cover-field">Cover image URL<input name="coverUrl" type="url" maxlength="2048" placeholder="https://…"></label>
+              <button class="button" type="submit">Add book <span aria-hidden="true">+</span></button>
+              <p class="admin-message" id="add-book-message" role="status"></p>
+            </form>
+            <div class="admin-book-toolbar"><h3>Books in collection</h3><label class="admin-book-search">Search<input id="admin-book-search" type="search" placeholder="Title or author"></label></div>
+            <div class="admin-book-list" id="admin-book-list"><p class="admin-empty">Loading books...</p></div>
+            <div class="admin-pagination" id="admin-book-pagination"></div>
+          </section>
+
+          <section class="admin-section" aria-labelledby="delivery-title">
+            <div class="admin-section-heading"><div><p class="eyebrow">FULFILLMENT &amp; TRACKING</p><h2 id="delivery-title">Delivery requests</h2><p>Review delivery contact details and update the demo tracker. No courier is connected.</p></div><button class="button button-small" id="refresh-deliveries" type="button">Refresh requests ↻</button></div>
+            <div class="admin-delivery-list" id="admin-delivery-list"><p class="admin-empty">Loading delivery requests...</p></div>
+          </section>
+
+          <section class="admin-section" aria-labelledby="issues-title">
+            <div class="admin-section-heading"><div><p class="eyebrow">COMMUNITY FEEDBACK</p><h2 id="issues-title">Public issue reports</h2><p>Review reports submitted from the public site and update their visible status.</p></div><button class="button button-small" id="refresh-issues" type="button">Refresh issues ↻</button></div>
+            <div class="admin-issue-list" id="admin-issue-list"><p class="admin-empty">Loading issue reports...</p></div>
+          </section>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer"><div class="footer-bottom"><span>© <span class="current-year"></span> Central Public Library</span><span>STAFF ACCESS</span><a href="/#home">PUBLIC HOME ↑</a></div></footer>
+  </body>
+</html>

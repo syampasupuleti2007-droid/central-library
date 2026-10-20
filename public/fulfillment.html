@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#173d35">
+    <meta name="description" content="Choose library pickup or home delivery for your book request.">
+    <title>Choose book delivery — Central Public Library</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./fulfillment.css">
+    <script src="./fulfillment.js" defer></script>
+  </head>
+  <body class="fulfillment-page" data-mode="choose">
+    <header class="site-header">
+      <a class="brand" href="/#home" aria-label="Central Public Library home">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <span class="brand-name">Central <span>Public Library</span></span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation"><a href="/#catalog">Explore books</a><a href="/#visit">Visit</a></nav>
+      <a class="text-button" href="/#catalog">← Back to collection</a>
+    </header>
+    <main>
+      <section class="fulfillment-banner">
+        <p class="eyebrow eyebrow-light"><span></span> A NEW CHAPTER AWAITS</p>
+        <h1>Choose how you'll<br><em>receive your book.</em></h1>
+        <p>A convenient pickup or a doorstep delivery—choose the option that works for you.</p>
+      </section>
+      <section class="fulfillment-main">
+        <a class="fulfillment-back" href="/#catalog">← Back to collection</a>
+        <div class="fulfillment-book-card" id="fulfillment-book" aria-live="polite"><div class="fulfillment-loading">Loading your selected book...</div></div>
+        <div class="fulfillment-choice-grid hidden" id="fulfillment-choices">
+          <a class="fulfillment-choice-card" id="pickup-choice" href="#">
+            <span class="fulfillment-choice-icon" aria-hidden="true">⌖</span>
+            <span class="fulfillment-choice-label">OPTION 01 · IN PERSON</span>
+            <h2>Library <em>pickup</em></h2>
+            <p>Request your book and collect it from your neighborhood library once staff approve it.</p>
+            <span class="fulfillment-choice-action">See pickup location <span aria-hidden="true">→</span></span>
+          </a>
+          <a class="fulfillment-choice-card delivery-choice" id="delivery-choice" href="#">
+            <span class="fulfillment-choice-icon" aria-hidden="true">↗</span>
+            <span class="fulfillment-choice-label">OPTION 02 · AT HOME</span>
+            <h2>Home <em>delivery</em></h2>
+            <p>Share a delivery address and phone number. Follow the request using the demo tracker.</p>
+            <span class="fulfillment-choice-action">Enter delivery details <span aria-hidden="true">→</span></span>
+          </a>
+        </div>
+        <div class="fulfillment-message hidden" id="fulfillment-message" role="status"></div>
+      </section>
+    </main>
+    <footer class="site-footer"><div class="footer-bottom"><span>© <span class="current-year"></span> Central Public Library</span><span>KNOWLEDGE IS FOR EVERYONE.</span><a href="/#home">HOME ↑</a></div></footer>
+  </body>
+</html>

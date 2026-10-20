@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#173d35">
+    <meta name="description" content="Discover your next favorite read at Central Public Library. Explore our collection, request books, and find your place to learn.">
+    <title>Central Public Library — A place for every story</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#home" aria-label="Central Public Library home">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <span class="brand-name">Central <span>Public Library</span></span>
+      </a>
+      <button class="menu-toggle" id="menu-toggle" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+      <nav class="main-nav" id="main-nav" aria-label="Main navigation">
+        <a href="#home">Home</a>
+        <a href="#catalog">Explore books</a>
+        <a href="#about">About us</a>
+        <a href="#visit">Visit</a>
+        <a href="#community-issues">Community issues</a>
+        <a class="hidden" id="profile-nav" href="/profile.html">My profile</a>
+        <a class="hidden" id="admin-nav" href="/admin.html">Admin</a>
+      </nav>
+      <div class="header-actions">
+        <button class="text-button" id="login-open">Log in</button>
+        <button class="button button-small" id="join-open">Get a library card <span aria-hidden="true">↗</span></button>
+        <button class="account-button hidden" id="account-button"></button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="home">
+        <div class="hero-shade"></div>
+        <div class="hero-content">
+          <p class="eyebrow eyebrow-light"><span></span> YOUR NEIGHBORHOOD, YOUR LIBRARY</p>
+          <h1>A place for<br>every <em>story.</em></h1>
+          <p class="hero-copy">Find a little wonder in every visit. Discover your next great read, learn something new, and make yourself at home.</p>
+          <div class="hero-actions">
+            <a class="button button-cream" href="#catalog">Explore the collection <span aria-hidden="true">→</span></a>
+            <a class="hero-link" href="#about">Get to know us <span aria-hidden="true">↗</span></a>
+          </div>
+          <div class="hero-note"><span class="status-dot"></span> OPEN TODAY <span class="hero-note-divider">·</span> 9:00 AM – 8:00 PM</div>
+        </div>
+        <div class="hero-side-note">A GOOD BOOK<br>IS A DOORWAY.</div>
+        <div class="hero-bottom">
+          <span>READ. LEARN. BELONG.</span>
+          <span>EST. 1968 <i>—</i> ALWAYS OPEN TO ALL</span>
+        </div>
+      </section>
+
+      <section class="welcome section-wrap">
+        <div class="welcome-intro">
+          <p class="eyebrow">MORE THAN BOOKS</p>
+          <h2>Room to grow.<br><em>Space to belong.</em></h2>
+        </div>
+        <p class="welcome-copy">A curious mind is always welcome here. From quiet corners and lively programs to resources for every age, Central Library is here for all of life's chapters.</p>
+        <a class="circle-link" href="#about" aria-label="Discover the library">↘</a>
+      </section>
+
+      <section class="collection section-wrap" id="catalog">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">YOUR NEXT CHAPTER</p>
+            <h2>Find your <em>next read.</em></h2>
+          </div>
+          <p class="section-aside">A growing collection of books<br>for every kind of curious.</p>
+        </div>
+        <div class="catalog-tools">
+          <label class="search-box">
+            <span aria-hidden="true">⌕</span>
+            <input type="search" id="book-search" placeholder="Search by title or author..." aria-label="Search books by title or author">
+            <kbd>↵</kbd>
+          </label>
+          <span class="catalog-count" id="catalog-count">Discover something wonderful</span>
+        </div>
+        <div class="book-grid" id="book-grid" aria-live="polite">
+          <div class="empty-state">The collection is getting ready. Check back soon.</div>
+        </div>
+        <div class="catalog-pagination" id="catalog-pagination"></div>
+      </section>
+
+      <section class="feature">
+        <div class="feature-image" role="img" aria-label="Sunlight falling across a welcoming library reading room"></div>
+        <div class="feature-copy">
+          <p class="eyebrow eyebrow-light">A LITTLE ROOM FOR BIG IDEAS</p>
+          <h2>Come for the<br>books. Stay for<br><em>the feeling.</em></h2>
+          <p>Thoughtful spaces, a friendly face, and the time to get lost in a good idea. Your library is ready when you are.</p>
+          <a class="button button-outline-light" href="#visit">Plan your visit <span aria-hidden="true">→</span></a>
+        </div>
+      </section>
+
+      <section class="about section-wrap" id="about">
+        <div class="about-heading">
+          <p class="eyebrow">A LIBRARY FOR EVERYONE</p>
+          <h2>Rooted in our community.<br><em>Open to the world.</em></h2>
+        </div>
+        <div class="about-content">
+          <p>Central Public Library brings people and ideas together. We believe access to knowledge, imagination, and one another can make a community stronger.</p>
+          <p>Whether you're here to study, explore, connect, or simply take a breath, you'll find a welcoming place and a team glad to help.</p>
+          <a class="underlined-link" href="#visit">Come say hello <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+
+      <section class="visit section-wrap" id="visit">
+        <div class="visit-heading">
+          <p class="eyebrow">MAKE YOURSELF AT HOME</p>
+          <h2>We'll save<br>you a <em>seat.</em></h2>
+        </div>
+        <div class="visit-details">
+          <div class="visit-card">
+            <span class="visit-icon" aria-hidden="true">⌖</span>
+            <h3>Find us</h3>
+            <p><span id="library-visit-name">Central Public Library</span><br><span id="library-visit-address">100 Library Lane<br>Your City, ST 00000</span></p>
+            <a id="library-directions" href="https://maps.google.com/?q=public+library" target="_blank" rel="noreferrer">Get directions ↗</a>
+          </div>
+          <div class="visit-card">
+            <span class="visit-icon" aria-hidden="true">◷</span>
+            <h3>Opening hours</h3>
+            <p>Monday – Friday <span id="library-weekday-hours">9 am – 8 pm</span><br>Saturday <span id="library-saturday-hours">10 am – 5 pm</span><br>Sunday <span id="library-sunday-hours">12 pm – 4 pm</span></p>
+            <small>Hours may vary on public holidays.</small>
+          </div>
+          <div class="visit-card">
+            <span class="visit-icon" aria-hidden="true">♡</span>
+            <h3>Need a hand?</h3>
+            <p>Our friendly team is here for questions, recommendations, and everything in between.</p>
+            <a id="library-contact-email" href="mailto:hello@centrallibrary.org">hello@centrallibrary.org ↗</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="community-issues section-wrap" id="community-issues">
+        <div class="section-heading">
+          <div><p class="eyebrow">HELP US IMPROVE</p><h2>Community <em>issue board.</em></h2></div>
+          <p class="section-aside">Share a library problem and see its progress.<br>Reports are visible to everyone.</p>
+        </div>
+        <div class="issue-board-layout">
+          <form class="issue-report-form" id="issue-report-form">
+            <h3>Report an issue</h3>
+            <p>Your report and description will appear publicly. Please do not include personal or sensitive information.</p>
+            <label>Issue title<input name="title" required minlength="4" maxlength="120" placeholder="A short summary"></label>
+            <label>Category<select name="category" required>
+              <option value="">Choose a category</option>
+              <option>Facilities</option>
+              <option>Books &amp; collection</option>
+              <option>Website</option>
+              <option>Accessibility</option>
+              <option>Other</option>
+            </select></label>
+            <label>What happened?<textarea name="description" required minlength="10" maxlength="2000" rows="5" placeholder="Describe the problem (10–2,000 characters)"></textarea></label>
+            <p class="form-message" id="issue-report-message" role="status"></p>
+            <button class="button" type="submit">Submit public report <span aria-hidden="true">→</span></button>
+          </form>
+          <div class="public-issue-list" id="public-issue-list" aria-live="polite"><p class="empty-state">Loading community reports...</p></div>
+        </div>
+      </section>
+
+      <section class="dashboard section-wrap hidden" id="dashboard">
+        <div class="section-heading">
+          <div><p class="eyebrow">YOUR LIBRARY ACCOUNT</p><h2 id="dashboard-title">My <em>library.</em></h2></div>
+          <button class="text-button" id="logout-button">Log out ↗</button>
+        </div>
+        <div id="member-dashboard" class="hidden">
+          <div class="profile-history-heading">
+            <div><p class="eyebrow">YOUR READING JOURNEY</p><h3 class="subheading">Your book requests</h3></div>
+            <a class="underlined-link" href="#catalog">Explore the collection <span aria-hidden="true">→</span></a>
+          </div>
+          <div id="member-loans" class="loan-list"></div>
+        </div>
+        <div id="admin-dashboard" class="hidden">
+          <div class="stats-grid" id="admin-stats"></div>
+          <div class="admin-columns">
+            <div>
+              <h3 class="subheading">Recent book requests</h3>
+              <div id="admin-loans" class="loan-list"></div>
+            </div>
+            <section class="admin-members">
+              <h3 class="subheading">Member accounts &amp; book history</h3>
+              <p class="admin-help">View member contact details and every book they have requested, borrowed, or returned.</p>
+              <div id="admin-members-list" class="member-list"></div>
+              <div class="catalog-pagination" id="admin-members-pagination"></div>
+            </section>
+            <form id="add-book-form" class="admin-form">
+              <h3 class="subheading">Add a book</h3>
+              <label>Title<input name="title" required maxlength="300"></label>
+              <label>Author<input name="author" maxlength="200"></label>
+              <label>Publication year<input name="year" type="number" min="1" max="2100"></label>
+              <label>Cover image URL<input name="coverUrl" type="url" maxlength="2048" placeholder="https://example.com/cover.jpg"></label>
+              <p class="admin-help">Use a public HTTPS image URL. Open Library cover images are added automatically for imported books.</p>
+              <button class="button" type="submit">Add to collection <span aria-hidden="true">→</span></button>
+              <p class="form-message" id="admin-message" role="status"></p>
+            </form>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-top">
+        <div><a class="brand brand-footer" href="#home"><span class="brand-mark">C</span><span class="brand-name">Central <span>Public Library</span></span></a><p>A good book is a doorway.<br>Come find yours.</p></div>
+        <div class="footer-links"><a href="#catalog">Explore books</a><a href="#about">About us</a><a href="#visit">Plan a visit</a><a href="mailto:hello@centrallibrary.org">Contact</a><a href="/admin.html">Staff admin</a></div>
+        <div class="footer-signoff">A PLACE FOR<br><em>EVERY STORY.</em></div>
+      </div>
+      <div class="footer-bottom"><span>© <span id="year"></span> Central Public Library</span><span>KNOWLEDGE IS FOR EVERYONE.</span><a href="#home">BACK TO TOP ↑</a></div>
+    </footer>
+
+    <dialog class="auth-dialog" id="auth-dialog" aria-labelledby="auth-title">
+      <button class="dialog-close" id="dialog-close" aria-label="Close sign in dialog">×</button>
+      <p class="eyebrow">YOUR LIBRARY, YOUR WAY</p>
+      <h2 id="auth-title">Welcome <em>in.</em></h2>
+      <div class="auth-tabs">
+        <button class="auth-tab active" type="button" data-mode="login">Log in</button>
+        <button class="auth-tab" type="button" data-mode="register">Create account</button>
+      </div>
+      <form id="auth-form">
+        <label class="name-field hidden">Your name<input name="name" autocomplete="name" minlength="2" maxlength="100"></label>
+        <label>Email address<input name="email" type="email" autocomplete="email" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" minlength="10" required></label>
+        <p class="auth-hint hidden" id="password-hint">Use at least 10 characters.</p>
+        <button class="button auth-submit" type="submit">Log in <span aria-hidden="true">→</span></button>
+        <p class="form-message" id="auth-message" role="status"></p>
+      </form>
+      <p class="dialog-footnote">New here? A library card is free for everyone.</p>
+    </dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

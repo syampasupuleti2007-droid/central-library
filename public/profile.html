@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#173d35">
+    <meta name="description" content="Your Central Public Library account and book history.">
+    <title>My Profile — Central Public Library</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./profile.css">
+    <script src="./profile.js" defer></script>
+  </head>
+  <body class="profile-page">
+    <header class="site-header">
+      <a class="brand" href="/#home" aria-label="Central Public Library home">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <span class="brand-name">Central <span>Public Library</span></span>
+      </a>
+      <button class="menu-toggle" id="profile-menu-toggle" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+      <nav class="main-nav" id="profile-main-nav" aria-label="Main navigation">
+        <a href="/#home">Home</a>
+        <a href="/#catalog">Explore books</a>
+        <a href="/#about">About us</a>
+        <a href="/#visit">Visit</a>
+        <a class="active" href="/profile.html" aria-current="page">My profile</a>
+      </nav>
+      <div class="header-actions">
+        <a class="text-button" href="/?login=1" id="profile-login-link">Log in</a>
+        <button class="account-button hidden" id="profile-header-user" type="button"></button>
+      </div>
+    </header>
+
+    <main>
+      <section class="profile-banner">
+        <div>
+          <p class="eyebrow eyebrow-light"><span></span> YOUR CENTRAL LIBRARY ACCOUNT</p>
+          <h1>Your library.<br><em>Your story.</em></h1>
+          <p>Keep track of your account and every book in your reading journey.</p>
+        </div>
+        <div class="profile-banner-mark" aria-hidden="true">C</div>
+      </section>
+
+      <section class="profile-main section-wrap">
+        <div class="profile-message" id="profile-message" role="status" aria-live="polite">
+          <span class="profile-loading-mark" aria-hidden="true">C</span>
+          <p>Loading your library profile...</p>
+        </div>
+
+        <div class="profile-content hidden" id="profile-content">
+          <div class="profile-topline">
+            <div>
+              <p class="eyebrow">ACCOUNT OVERVIEW</p>
+              <h2>Welcome, <em id="profile-first-name">reader.</em></h2>
+            </div>
+            <button class="text-button" id="profile-logout" type="button">Log out ↗</button>
+          </div>
+
+          <section class="profile-account-card" aria-labelledby="account-details-title">
+            <div class="profile-account-heading">
+              <div class="profile-avatar" id="profile-avatar" aria-hidden="true"></div>
+              <div>
+                <p class="eyebrow">SIGNED-IN ACCOUNT</p>
+                <h3 id="profile-full-name"></h3>
+                <span class="role-badge" id="profile-role"></span>
+              </div>
+            </div>
+            <div class="profile-account-details">
+              <h3 class="visually-hidden" id="account-details-title">Account details</h3>
+              <div class="profile-detail"><span>Full name</span><strong id="profile-name-detail"></strong></div>
+              <div class="profile-detail"><span>Login email</span><strong id="profile-email"></strong></div>
+              <div class="profile-detail"><span>Account type</span><strong id="profile-account-type"></strong></div>
+              <div class="profile-detail"><span>Member since</span><strong id="profile-joined"></strong></div>
+              <div class="profile-detail"><span>Last sign-in</span><strong id="profile-last-login"></strong></div>
+              <div class="profile-detail"><span>Password</span><strong>Protected — never displayed</strong></div>
+            </div>
+            <p class="profile-security-note">Your password is securely stored and is never shown on this page.</p>
+          </section>
+
+          <section class="profile-history" aria-labelledby="history-title">
+            <div class="profile-history-heading">
+              <div>
+                <p class="eyebrow">YOUR READING JOURNEY</p>
+                <h2 id="history-title">Book history</h2>
+              </div>
+              <a class="underlined-link" href="/#catalog">Explore the collection <span aria-hidden="true">→</span></a>
+            </div>
+            <div class="profile-history-stats" id="profile-history-stats"></div>
+            <div class="profile-loans" id="profile-loans" aria-live="polite"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-top">
+        <div>
+          <a class="brand brand-footer" href="/#home"><span class="brand-mark">C</span><span class="brand-name">Central <span>Public Library</span></span></a>
+          <p>A good book is a doorway.<br>Come find yours.</p>
+        </div>
+        <div class="footer-links"><a href="/#catalog">Explore books</a><a href="/#about">About us</a><a href="/#visit">Plan a visit</a><a href="mailto:hello@centrallibrary.org">Contact</a></div>
+        <div class="footer-signoff">A PLACE FOR<br><em>EVERY STORY.</em></div>
+      </div>
+      <div class="footer-bottom"><span>© <span id="profile-year"></span> Central Public Library</span><span>KNOWLEDGE IS FOR EVERYONE.</span><a href="#">BACK TO TOP ↑</a></div>
+    </footer>
+  </body>
+</html>
