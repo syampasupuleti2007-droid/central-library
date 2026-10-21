@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#173d35">
+    <meta name="description" content="Suggest a book for the Central Public Library collection.">
+    <title>Suggest a Book — Central Public Library</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./profile.css">
+    <script src="./member-service.js" defer></script>
+  </head>
+  <body class="profile-page" data-member-service="book-suggestion">
+    <header class="site-header">
+      <a class="brand" href="/#home" aria-label="Central Public Library home"><span class="brand-mark" aria-hidden="true">C</span><span class="brand-name">Central <span>Public Library</span></span></a>
+      <button class="menu-toggle" id="service-menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+      <nav class="main-nav" id="service-main-nav" aria-label="Member navigation">
+        <a href="/#home">Home</a><a href="/#catalog">Explore books</a><a href="/profile.html">My profile</a>
+        <a href="/notifications.html">Notifications</a><a href="/table-bookings.html">Book a table</a><a class="active" href="/book-suggestion.html" aria-current="page">Suggest a book</a><a href="/complaint.html">Complaints</a>
+      </nav>
+      <div class="header-actions"><a class="text-button" href="/?login=1" id="service-login-link">Log in</a><a class="account-button hidden" id="service-user-link" href="/profile.html"></a><button class="text-button hidden" id="service-logout" type="button">Log out ↗</button></div>
+    </header>
+    <main>
+      <section class="profile-banner"><div><p class="eyebrow eyebrow-light"><span></span> GROW THE COLLECTION</p><h1>Suggest a <em>book.</em></h1><p>Tell us what you would love to find on our shelves.</p></div><div class="profile-banner-mark" aria-hidden="true">C</div></section>
+      <section class="profile-main section-wrap">
+        <div class="profile-message" id="service-message" role="status" aria-live="polite"><span class="profile-loading-mark" aria-hidden="true">C</span><p>Loading book suggestions...</p></div>
+        <div class="profile-content profile-service-content hidden" id="service-content">
+          <section class="profile-suggestions" aria-labelledby="suggestion-title">
+            <div class="profile-service-heading"><div><p class="eyebrow">MEMBER SERVICES</p><h2 id="suggestion-title">Suggest a book</h2></div></div>
+            <div class="issue-board-layout">
+              <form class="issue-report-form" id="service-suggestion-form">
+                <h3>Request a title</h3>
+                <p>Only you and library administrators can see your suggestion.</p>
+                <label>Book title<input name="title" required minlength="2" maxlength="200" placeholder="Title you would love to read"></label>
+                <label>Author<input name="author" maxlength="200" placeholder="Author, if known"></label>
+                <label>Why should we add it?<textarea name="details" maxlength="1000" rows="4" placeholder="Optional details or a short reason"></textarea></label>
+                <p class="form-message" id="service-suggestion-message" role="status" aria-live="polite"></p>
+                <button class="button" type="submit">Send suggestion <span aria-hidden="true">→</span></button>
+              </form>
+              <div class="profile-suggestion-list" id="service-suggestion-list" aria-live="polite"><p class="empty-state">Loading your suggestions...</p></div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer"><div class="footer-bottom"><span>© <span class="service-year"></span> Central Public Library</span><span>KNOWLEDGE IS FOR EVERYONE.</span><a href="/profile.html">MY PROFILE ↑</a></div></footer>
+  </body>
+</html>

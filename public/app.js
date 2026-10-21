@@ -1,4 +1,4 @@
-const state = { user: null, page: 1, search: "", category: "All", authMode: "login", debounce: null, selectedBook: null };
+const state = { user: null, page: 1, search: "", category: "All", language: "All", authMode: "login", debounce: null, selectedBook: null };
 const $ = (selector) => document.querySelector(selector);
 const bookGrid = $("#book-grid");
 const pagination = $("#catalog-pagination");
@@ -64,6 +64,7 @@ async function loadBooks() {
     const params = new URLSearchParams({ page: state.page, limit: "12" });
     if (state.search) params.set("search", state.search);
     if (state.category !== "All") params.set("category", state.category);
+    if (state.language !== "All") params.set("language", state.language);
     const data = await api(`/api/books?${params}`);
     $("#catalog-count").textContent = data.total ? `${data.total.toLocaleString()} books to discover` : "No books found";
     if (!data.books.length) {
@@ -78,13 +79,17 @@ async function loadBooks() {
         ? `<img class="book-cover" loading="lazy" src="${escapeHtml(coverUrl)}" alt="Cover of ${title}" onerror="this.remove()">`
         : `<div class="book-cover-placeholder">${title}</div>`;
       const isAdmin = state.user?.role === "admin";
+      const availableCopies = Number(book.availableCopies ?? book.totalCopies ?? 1);
       return `<article class="book-card">
         <div class="book-cover-wrap">${cover}</div>
         <div class="book-info"><h3>${title}</h3>
         <p>by ${escapeHtml(book.author || "Unknown author")}</p>
         <span class="book-category">${escapeHtml(book.category || "Other")}</span>
+        <span class="book-language">${escapeHtml(book.language || "English")}</span>
         ${book.year ? `<span class="book-year">${escapeHtml(book.year)}</span>` : ""}
-        ${state.user ? `<button class="book-request" data-request-book="${escapeHtml(book._id)}">Request this book →</button>` : ""}
+        <span class="book-copies">Copies in collection: ${escapeHtml(book.totalCopies ?? 1)} · Available: ${escapeHtml(availableCopies)}</span>
+        ${availableCopies === 0 ? '<span class="book-unavailable" role="status">This book is not available right now</span>' : ""}
+        ${state.user && availableCopies > 0 ? `<button class="book-request" data-request-book="${escapeHtml(book._id)}">Request this book →</button>` : ""}
         ${isAdmin ? `<button class="book-delete" type="button" data-delete-book="${escapeHtml(book._id)}">Remove book</button>` : ""}
         </div>
       </article>`;
@@ -195,9 +200,9 @@ function renderLoan(loan, admin = false) {
     </div>
     <span class="loan-status">${status}</span>
     ${admin && loan.status === "requested" ? `<div class="loan-actions"><button data-loan-status="approved" data-loan-id="${escapeHtml(loan._id)}">Approve</button><button data-loan-status="declined" data-loan-id="${escapeHtml(loan._id)}">Decline</button></div>` : ""}
-    ${admin && loan.status === "approved" ? `<div class="loan-actions"><button data-loan-status="returned" data-loan-id="${escapeHtml(loan._id)}">Mark returned</button></div>` : ""}
+    ${admin && loan.status === "return_requested" ? `<div class="loan-actions"><button data-loan-status="returned" data-loan-id="${escapeHtml(loan._id)}">Confirm book received</button></div>` : ""}
     ${!admin && isDelivery ? tracking : ""}
-    ${admin && isDelivery && loan.status !== "declined" && loan.status !== "returned" ? `<label class="tracking-admin-control">Update demo tracker<select data-tracking-id="${escapeHtml(loan._id)}"><option value="confirmed"${loan.trackingStatus === "confirmed" ? " selected" : ""}>Request confirmed</option><option value="preparing"${loan.trackingStatus === "preparing" ? " selected" : ""}>Preparing book</option><option value="out_for_delivery"${loan.trackingStatus === "out_for_delivery" ? " selected" : ""}>Out for delivery</option><option value="delivered"${loan.trackingStatus === "delivered" ? " selected" : ""}>Delivered</option></select></label>` : ""}
+    ${admin && isDelivery && !["declined", "return_requested", "returned"].includes(loan.status) ? `<label class="tracking-admin-control">Update demo tracker<select data-tracking-id="${escapeHtml(loan._id)}"><option value="confirmed"${loan.trackingStatus === "confirmed" ? " selected" : ""}>Request confirmed</option><option value="preparing"${loan.trackingStatus === "preparing" ? " selected" : ""}>Preparing book</option><option value="out_for_delivery"${loan.trackingStatus === "out_for_delivery" ? " selected" : ""}>Out for delivery</option><option value="delivered"${loan.trackingStatus === "delivered" ? " selected" : ""}>Delivered</option></select></label>` : ""}
   </div>`;
 }
 
@@ -279,6 +284,28 @@ $("#book-category").addEventListener("change", (event) => {
   state.page = 1;
   loadBooks();
 });
+
+$("#book-language").addEventListener("change", (event) => {
+  state.language = event.target.value;
+  state.page = 1;
+  loadBooks();
+});
+
+async function loadBookLanguages() {
+  const select = $("#book-language");
+  try {
+    const { languages } = await api("/api/books/languages");
+    const selectedLanguage = state.language;
+    select.innerHTML = '<option value="All">All languages</option>' + languages
+      .map((language) => `<option value="${escapeHtml(language)}">${escapeHtml(language)}</option>`)
+      .join("");
+    if (languages.includes(selectedLanguage)) select.value = selectedLanguage;
+    else state.language = "All";
+  } catch (error) {
+    console.error("Unable to load book languages:", error);
+    notify(`Book language filters could not be loaded: ${error.message}`);
+  }
+}
 
 pagination.addEventListener("click", (event) => {
   const button = event.target.closest("[data-page]");
@@ -462,6 +489,7 @@ $("#main-nav").addEventListener("click", (event) => {
 
 $("#year").textContent = new Date().getFullYear();
 loadBooks();
+loadBookLanguages();
 refreshUser();
 loadLibrarySettings();
 if (new URLSearchParams(window.location.search).get("login") === "1") showAuth("login");

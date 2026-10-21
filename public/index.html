@@ -75,7 +75,7 @@
         <div class="catalog-tools">
           <label class="search-box">
             <span aria-hidden="true">⌕</span>
-            <input type="search" id="book-search" placeholder="Search by title, author, or category..." aria-label="Search books by title, author, or category">
+            <input type="search" id="book-search" placeholder="Search by title, author, category, or language..." aria-label="Search books by title, author, category, or language">
             <kbd>↵</kbd>
           </label>
           <label class="catalog-category-filter">Category
@@ -96,7 +96,13 @@
               <option>Other</option>
             </select>
           </label>
+          <label class="catalog-category-filter">Language
+            <select id="book-language" aria-label="Filter books by language">
+              <option value="All">All languages</option>
+            </select>
+          </label>
           <span class="catalog-count" id="catalog-count">Discover something wonderful</span>
+          <a class="button button-small catalog-suggest-button" href="/book-suggestion.html">Suggest a book <span aria-hidden="true">→</span></a>
         </div>
         <div class="book-grid" id="book-grid" aria-live="polite">
           <div class="empty-state">The collection is getting ready. Check back soon.</div>
@@ -210,6 +216,8 @@
               <h3 class="subheading">Add a book</h3>
               <label>Title<input name="title" required maxlength="300"></label>
               <label>Author<input name="author" maxlength="200"></label>
+              <label>Category<select name="category" required><option>Other</option><option>Adventure</option><option>Biography</option><option>Children</option><option>Classics</option><option>Fantasy</option><option>History</option><option>Horror</option><option>Mystery</option><option>Nonfiction</option><option>Philosophy</option><option>Romance</option><option>Science Fiction</option></select></label>
+              <label>Language<input name="language" required maxlength="100" value="English" placeholder="English"></label>
               <label>Publication year<input name="year" type="number" min="1" max="2100"></label>
               <label>Cover image URL<input name="coverUrl" type="url" maxlength="2048" placeholder="https://example.com/cover.jpg"></label>
               <p class="admin-help">Use a public HTTPS image URL. Open Library cover images are added automatically for imported books.</p>

@@ -8,7 +8,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed:books": "node scripts/seed-books.js",
-    "check": "node --check server.js && node --check public/app.js && node --check public/profile.js && node --check public/fulfillment.js && node --check public/payment.js && node --check public/admin.js && node --check scripts/seed-books.js && node --check scripts/starter-catalog.js && node --check scripts/book-categories.js"
+    "check": "node --check server.js && node --check public/app.js && node --check public/profile.js && node --check public/member-service.js && node --check public/fulfillment.js && node --check public/payment.js && node --check public/admin.js && node --check scripts/seed-books.js && node --check scripts/starter-catalog.js && node --check scripts/book-categories.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

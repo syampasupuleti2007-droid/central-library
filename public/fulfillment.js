@@ -38,8 +38,9 @@ function setMessage(message) {
 function bookCard(book) {
   const title = escapeHtml(book.title);
   const coverUrl = book.coverUrl || (book.coverId ? `https://covers.openlibrary.org/b/id/${Number(book.coverId)}-M.jpg` : "");
+  const availableCopies = Number(book.availableCopies ?? book.totalCopies ?? 1);
   return `<span class="fulfillment-book-cover">${coverUrl ? `<img src="${escapeHtml(coverUrl)}" alt="Cover of ${title}">` : `<span>${title}</span>`}</span>
-    <span class="fulfillment-book-info"><span class="eyebrow">YOUR SELECTED BOOK</span><strong>${title}</strong><span>by ${escapeHtml(book.author || "Unknown author")}</span><span>Category: ${escapeHtml(book.category || "Other")}</span>${book.year ? `<small>Published ${escapeHtml(book.year)}</small>` : ""}</span>`;
+    <span class="fulfillment-book-info"><span class="eyebrow">YOUR SELECTED BOOK</span><strong>${title}</strong><span>by ${escapeHtml(book.author || "Unknown author")}</span><span>Category: ${escapeHtml(book.category || "Other")}</span><span>${availableCopies} of ${escapeHtml(book.totalCopies ?? 1)} copies available</span>${book.year ? `<small>Published ${escapeHtml(book.year)}</small>` : ""}</span>`;
 }
 
 function showLoginPrompt() {
@@ -77,6 +78,10 @@ async function initialize() {
   try {
     const { book } = await api(`/api/books/${encodeURIComponent(bookId)}`);
     $("#fulfillment-book").innerHTML = bookCard(book);
+    if (Number(book.availableCopies ?? book.totalCopies ?? 1) === 0) {
+      setMessage("This book is not available right now. All copies are currently booked.");
+      return;
+    }
 
     if (mode === "choose") {
       $("#pickup-choice").href = `/pickup.html?bookId=${encodeURIComponent(book._id)}`;

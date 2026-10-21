@@ -6,8 +6,9 @@ const bookCategories = [
 const adminState = {
   user: null,
   activeTab: "overview",
-  search: { books: "", members: "", pickups: "", deliveries: "", issues: "" },
+  search: { books: "", members: "", pickups: "", deliveries: "", issues: "", suggestions: "", tableBookings: "" },
   bookCategory: "All",
+  bookLanguage: "All",
   memberPage: 1,
   memberSearchTimer: null
 };
@@ -78,9 +79,12 @@ function renderAdmin(user) {
   loadOverview();
   loadSettings();
   loadBooksForAdmin();
+  loadAdminBookLanguages();
   loadMembers();
   loadPickups();
   loadDeliveries();
+  loadTableBookings();
+  loadBookSuggestions();
   loadIssues();
 }
 
@@ -92,6 +96,7 @@ async function loadBooksForAdmin(searchText = adminState.search.books) {
     const query = new URLSearchParams({ page: "1", limit: "10" });
     if (searchParam) query.set("search", searchParam);
     if (adminState.bookCategory !== "All") query.set("category", adminState.bookCategory);
+    if (adminState.bookLanguage !== "All") query.set("language", adminState.bookLanguage);
     const { books } = await api(`/api/admin/books?${query.toString()}`);
     list.innerHTML = books.length
       ? books.map((book) => `
@@ -106,12 +111,14 @@ async function loadBooksForAdmin(searchText = adminState.search.books) {
               <button class="button button-small" type="button" data-admin-delete-book="${escapeHtml(book._id)}">Remove</button>
             </div>
           </div>
-          <p class="admin-issue-reporter">by ${escapeHtml(book.author || "Unknown author")} · ${escapeHtml(book.category || "Other")}</p>
+          <p class="admin-issue-reporter">by ${escapeHtml(book.author || "Unknown author")} · ${escapeHtml(book.category || "Other")} · ${escapeHtml(book.language || "English")} · ${escapeHtml(book.totalCopies ?? 1)} total · ${Math.max(0, Number(book.totalCopies ?? 1) - Number(book.copiesInUse ?? 0))} available · ${escapeHtml(book.copiesInUse ?? 0)} currently booked</p>
           <form class="admin-settings-form admin-book-edit-form hidden" data-admin-book-form="${escapeHtml(book._id)}">
             <label>Title<input name="title" value="${escapeHtml(book.title || "")}" required maxlength="300"></label>
             <label>Author<input name="author" value="${escapeHtml(book.author || "")}" maxlength="200"></label>
             <label>Category<select name="category" required>${categoryOptions(book.category || "Other")}</select></label>
+            <label>Language<input name="language" value="${escapeHtml(book.language || "English")}" required maxlength="100" placeholder="English"></label>
             <label>Publication year<input name="year" type="number" min="1" max="2100" value="${escapeHtml(book.year || "")}"></label>
+            <label>Copies in collection<input name="totalCopies" type="number" min="0" max="1000000" step="1" value="${escapeHtml(book.totalCopies ?? 1)}" required></label>
             <label>Cover image URL<input name="coverUrl" type="url" maxlength="2048" value="${escapeHtml(book.coverUrl || "")}" placeholder="https://example.com/cover.jpg"></label>
             <div class="admin-form-actions">
               <button class="button button-small" type="submit">Save</button>
@@ -126,6 +133,21 @@ async function loadBooksForAdmin(searchText = adminState.search.books) {
   }
 }
 
+async function loadAdminBookLanguages() {
+  const select = document.querySelector("[data-admin-language-filter]");
+  try {
+    const { languages } = await api("/api/books/languages");
+    select.innerHTML = '<option value="All">All languages</option>' + languages
+      .map((language) => `<option value="${escapeHtml(language)}">${escapeHtml(language)}</option>`)
+      .join("");
+    if (languages.includes(adminState.bookLanguage)) select.value = adminState.bookLanguage;
+    else adminState.bookLanguage = "All";
+  } catch (error) {
+    select.innerHTML = '<option value="All">All languages</option>';
+    setMessage("#book-message", `Book language filters could not be loaded: ${error.message}`, true);
+  }
+}
+
 async function loadOverview() {
   try {
     const { stats } = await api("/api/admin/overview");
@@ -134,9 +156,46 @@ async function loadOverview() {
       ["Library members", stats.members],
       ["Active requests", stats.activeLoans]
     ].map(([label, value]) => `<article class="admin-stat"><strong>${Number(value).toLocaleString()}</strong><span>${label}</span></article>`).join("");
+    renderOverviewCharts(stats);
   } catch (error) {
     $("#admin-stats").innerHTML = `<p class="admin-empty">${escapeHtml(error.message)}</p>`;
+    $("#admin-overview-charts").replaceChildren();
   }
+}
+
+function renderOverviewCharts(stats) {
+  const inventory = stats.inventory || {};
+  const totalCopies = Math.max(0, Number(inventory.totalCopies) || 0);
+  const availableCopies = Math.max(0, Number(inventory.availableCopies) || 0);
+  const copiesInUse = Math.max(0, Number(inventory.copiesInUse) || 0);
+  const availableWidth = totalCopies ? Math.min(100, (availableCopies / totalCopies) * 100) : 0;
+  const inUseWidth = totalCopies ? Math.min(100 - availableWidth, (copiesInUse / totalCopies) * 100) : 0;
+  const statuses = stats.loanStatusCounts || {};
+  const loanBars = [
+    ["Awaiting approval", Number(statuses.requested) || 0, "requested"],
+    ["Borrowed", Number(statuses.approved) || 0, "approved"],
+    ["Return awaiting receipt", Number(statuses.return_requested) || 0, "return-requested"],
+    ["Returned", Number(statuses.returned) || 0, "returned"],
+    ["Declined", Number(statuses.declined) || 0, "declined"]
+  ];
+  const maxLoans = Math.max(1, ...loanBars.map(([, value]) => value));
+  $("#admin-overview-charts").innerHTML = `
+    <article class="admin-chart-card">
+      <div class="admin-chart-heading"><div><p class="eyebrow">COLLECTION</p><h2>Copy availability</h2></div><strong>${totalCopies.toLocaleString()} total copies</strong></div>
+      ${totalCopies
+        ? `<div class="admin-inventory-bar" role="img" aria-label="${availableCopies} available copies and ${copiesInUse} copies currently booked"><span class="admin-inventory-available" style="width:${availableWidth}%"></span><span class="admin-inventory-in-use" style="width:${inUseWidth}%"></span></div>
+          <div class="admin-chart-legend"><span><i class="legend-available"></i>${availableCopies.toLocaleString()} available</span><span><i class="legend-in-use"></i>${copiesInUse.toLocaleString()} booked</span></div>`
+        : '<p class="admin-chart-empty">No book copies have been added yet.</p>'}
+    </article>
+    <article class="admin-chart-card">
+      <div class="admin-chart-heading"><div><p class="eyebrow">LOAN ACTIVITY</p><h2>Request status</h2></div><strong>${loanBars.reduce((total, [, count]) => total + count, 0).toLocaleString()} total</strong></div>
+      <div class="admin-loan-chart">${loanBars.map(([label, value, status]) => `
+        <div class="admin-loan-chart-row">
+          <span>${label}</span>
+          <div class="admin-loan-chart-track" role="img" aria-label="${label}: ${value}"><i class="chart-${status}" style="width:${Math.max(value ? 2 : 0, (value / maxLoans) * 100)}%"></i></div>
+          <strong>${value.toLocaleString()}</strong>
+        </div>`).join("")}</div>
+    </article>`;
 }
 
 function renderMember(member) {
@@ -158,6 +217,15 @@ function renderMember(member) {
       <div><span>Email</span><strong>${escapeHtml(member.email || "Not provided")}</strong></div>
       <div><span>Last login</span><strong>${escapeHtml(member.lastLoginAt ? new Date(member.lastLoginAt).toLocaleString() : "No login recorded")}</strong></div>
     </div>
+    <details class="admin-member-message">
+      <summary>Send message to member</summary>
+      <form class="admin-member-message-form" data-member-message-form="${escapeHtml(member._id)}">
+        <label>Subject<input name="title" required minlength="2" maxlength="120" placeholder="Message subject"></label>
+        <label>Message<textarea name="message" required minlength="2" maxlength="1000" rows="3" placeholder="Write a message for this member"></textarea></label>
+        <p class="admin-message" data-member-message-status role="status"></p>
+        <button class="button button-small" type="submit">Send to notifications →</button>
+      </form>
+    </details>
     <h4>Book request history (${loans.length})</h4>
     ${loanHistory}
   </article>`;
@@ -216,11 +284,12 @@ function renderDelivery(loan) {
   const book = loan.book || {};
   const address = loan.deliveryAddress || {};
   const addressText = [address.line1, address.line2, [address.city, address.region, address.postalCode, address.country].filter(Boolean).join(", ")].filter(Boolean).join(", ");
-  const canUpdate = !["declined", "returned"].includes(loan.status);
+  const canUpdate = !["declined", "return_requested", "returned"].includes(loan.status);
   return `<article class="admin-delivery-card" data-delivery-card="${escapeHtml(loan._id)}">
     <div class="admin-delivery-main"><div><p class="eyebrow">DELIVERY REQUEST · ${escapeHtml(new Date(loan.createdAt).toLocaleDateString())}</p><h3>${escapeHtml(book.title || "Book")}</h3><p>by ${escapeHtml(book.author || "Unknown author")} · ${escapeHtml(book.category || "Other")}</p></div><span class="admin-loan-status status-${escapeHtml(loan.status)}">${escapeHtml(loan.status)}</span></div>
     <div class="admin-delivery-details"><div><span>Member</span><strong>${escapeHtml(member.name || "Unknown")} · ${escapeHtml(member.email || "")}</strong></div><div><span>Recipient</span><strong>${escapeHtml(address.recipient || "")} · ${escapeHtml(address.phone || "")}</strong></div><div><span>Delivery address</span><strong>${escapeHtml(addressText)}</strong></div><div><span>Delivery fee</span><strong>${loan.deliveryFeeRupees === undefined ? "Not recorded" : `₹${Number(loan.deliveryFeeRupees).toLocaleString("en-IN")} · demo only, not charged`}</strong></div><div><span>Payment status</span><strong>${loan.paymentStatus === "demo_only" ? "Demo simulation only (no money charged)" : loan.paymentStatus === "not_required" ? "Not required" : "Not recorded"}</strong></div>${address.instructions ? `<div><span>Instructions</span><strong>${escapeHtml(address.instructions)}</strong></div>` : ""}</div>
     ${loan.status === "requested" ? `<div class="admin-delivery-actions"><button type="button" data-delivery-status="approved" data-loan-id="${escapeHtml(loan._id)}">Approve request</button><button type="button" data-delivery-status="declined" data-loan-id="${escapeHtml(loan._id)}">Decline request</button></div>` : ""}
+    ${loan.status === "return_requested" ? `<div class="admin-delivery-details admin-return-request"><div><span>Return request received</span><strong>${escapeHtml(loan.returnRequestedAt ? new Date(loan.returnRequestedAt).toLocaleString() : "Date not recorded")}</strong></div><p>The member has requested to return this book. Confirm receipt to make the copy available again.</p><div class="admin-delivery-actions"><button type="button" data-delivery-status="returned" data-loan-id="${escapeHtml(loan._id)}">Confirm book received</button></div></div>` : ""}
     <div class="admin-delivery-tracking"><div class="delivery-tracker-heading"><strong>Demo delivery tracker</strong><span>NO COURIER CONNECTED</span></div><div class="delivery-tracker-steps">${[
       ["confirmed", "Request confirmed"],
       ["preparing", "Preparing book"],
@@ -237,12 +306,16 @@ function renderDelivery(loan) {
 function renderPickup(loan) {
   const member = loan.member || {};
   const book = loan.book || {};
-  const pickupLabel = loan.status === "requested" ? "Awaiting admin review" : loan.status === "approved" ? "Ready for pickup" : loan.status === "returned" ? "Returned" : "Declined";
+  const pickupLabel = loan.status === "requested" ? "Awaiting admin review"
+    : loan.status === "approved" ? "Ready for pickup"
+      : loan.status === "return_requested" ? "Member requested return — awaiting receipt"
+        : loan.status === "returned" ? "Returned and received"
+          : "Declined";
   return `<article class="admin-delivery-card" data-pickup-card="${escapeHtml(loan._id)}">
     <div class="admin-delivery-main"><div><p class="eyebrow">PICKUP REQUEST · ${escapeHtml(new Date(loan.createdAt).toLocaleDateString())}</p><h3>${escapeHtml(book.title || "Book")}</h3><p>by ${escapeHtml(book.author || "Unknown author")} · ${escapeHtml(book.category || "Other")}</p></div><span class="admin-loan-status status-${escapeHtml(loan.status)}">${escapeHtml(loan.status)}</span></div>
     <div class="admin-delivery-details"><div><span>Member</span><strong>${escapeHtml(member.name || "Unknown")} · ${escapeHtml(member.email || "")}</strong></div><div><span>Pickup status</span><strong>${escapeHtml(pickupLabel)}</strong></div><div><span>Due date</span><strong>${escapeHtml(loan.dueAt ? new Date(loan.dueAt).toLocaleDateString() : "Not set")}</strong></div></div>
     ${loan.status === "requested" ? `<div class="admin-delivery-actions"><button type="button" data-pickup-status="approved" data-loan-id="${escapeHtml(loan._id)}">Approve request</button><button type="button" data-pickup-status="declined" data-loan-id="${escapeHtml(loan._id)}">Decline request</button></div>` : ""}
-    ${loan.status === "approved" ? `<div class="admin-delivery-actions"><button type="button" data-pickup-status="returned" data-loan-id="${escapeHtml(loan._id)}">Mark returned</button></div>` : ""}
+    ${loan.status === "return_requested" ? `<div class="admin-delivery-details admin-return-request"><div><span>Return request received</span><strong>${escapeHtml(loan.returnRequestedAt ? new Date(loan.returnRequestedAt).toLocaleString() : "Date not recorded")}</strong></div><p>The member has requested to return this book. Confirm receipt to make the copy available again.</p><div class="admin-delivery-actions"><button type="button" data-pickup-status="returned" data-loan-id="${escapeHtml(loan._id)}">Confirm book received</button></div></div>` : ""}
   </article>`;
 }
 
@@ -333,6 +406,86 @@ async function loadIssues() {
   }
 }
 
+function renderBookSuggestion(suggestion) {
+  const statusLabels = {
+    submitted: "Submitted",
+    reviewing: "Under review",
+    approved: "Approved",
+    declined: "Declined",
+    added: "Added to collection"
+  };
+  return `<article class="admin-issue-card">
+    <div class="admin-issue-heading"><div><p class="eyebrow">BOOK SUGGESTION · ${escapeHtml(new Date(suggestion.createdAt).toLocaleDateString())}</p><h3>${escapeHtml(suggestion.title)}</h3></div><span class="issue-status issue-status-${escapeHtml(suggestion.status)}">${escapeHtml(statusLabels[suggestion.status] || suggestion.status)}</span></div>
+    <p class="admin-issue-reporter">Suggested by ${escapeHtml(suggestion.suggestedBy?.name || "Unknown member")} · ${escapeHtml(suggestion.suggestedBy?.email || "")}${suggestion.author ? ` · Author: ${escapeHtml(suggestion.author)}` : ""}</p>
+    ${suggestion.details ? `<p class="admin-issue-description">${escapeHtml(suggestion.details)}</p>` : ""}
+    <label class="admin-issue-status">Review status
+      <select data-book-suggestion-status="${escapeHtml(suggestion._id)}">
+        ${[["submitted", "Submitted"], ["reviewing", "Under review"], ["approved", "Approved"], ["declined", "Declined"], ["added", "Added to collection"]].map(([value, label]) => `<option value="${value}"${suggestion.status === value ? " selected" : ""}>${label}</option>`).join("")}
+      </select>
+    </label>
+  </article>`;
+}
+
+async function loadBookSuggestions() {
+  const list = $("#admin-suggestion-list");
+  list.innerHTML = '<p class="admin-empty">Loading book suggestions...</p>';
+  try {
+    const { suggestions } = await api("/api/admin/book-suggestions");
+    const filtered = suggestions.filter((suggestion) => filterMatches(adminState.search.suggestions, [
+      suggestion.title,
+      suggestion.author,
+      suggestion.details,
+      suggestion.suggestedBy?.name,
+      suggestion.suggestedBy?.email,
+      suggestion.status
+    ]));
+    list.innerHTML = filtered.length
+      ? filtered.map(renderBookSuggestion).join("")
+      : '<p class="admin-empty">No book suggestions match your search.</p>';
+  } catch (error) {
+    list.innerHTML = `<p class="admin-empty error">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+function renderTableBooking(booking) {
+  const member = booking.member || {};
+  const date = new Date(`${booking.date}T12:00:00`);
+  const dateLabel = Number.isNaN(date.getTime()) ? booking.date : date.toLocaleDateString(undefined, { dateStyle: "long" });
+  return `<article class="admin-issue-card admin-table-booking-card">
+    <div>
+      <p class="eyebrow">TABLE RESERVATION · ${escapeHtml(dateLabel)}</p>
+      <h3>Table address: Floor ${escapeHtml(booking.floor)}, Table ${escapeHtml(booking.tableNumber)}</h3>
+      <p class="admin-issue-reporter">${escapeHtml(booking.startTime)}–${escapeHtml(booking.endTime)} · ${escapeHtml(member.name || "Unknown member")} · ${escapeHtml(member.email || "No email")}</p>
+      <span class="profile-table-status${booking.status === "cancelled" ? " profile-table-status-cancelled" : ""}">${escapeHtml(booking.status)}</span>
+    </div>
+    ${booking.status === "confirmed" ? `<button class="button button-small" type="button" data-admin-cancel-table-booking="${escapeHtml(booking._id)}">Cancel booking</button>` : ""}
+  </article>`;
+}
+
+async function loadTableBookings() {
+  const list = $("#admin-table-booking-list");
+  list.innerHTML = '<p class="admin-empty">Loading table bookings...</p>';
+  try {
+    const { bookings } = await api("/api/admin/table-bookings");
+    const filtered = bookings.filter((booking) => filterMatches(adminState.search.tableBookings, [
+      booking.date,
+      booking.startTime,
+      booking.endTime,
+      booking.floor,
+      booking.tableNumber,
+      booking.status,
+      booking.member?.name,
+      booking.member?.email,
+      booking.member?.libraryId
+    ]));
+    list.innerHTML = filtered.length
+      ? filtered.map(renderTableBooking).join("")
+      : '<p class="admin-empty">No table bookings match your search.</p>';
+  } catch (error) {
+    list.innerHTML = `<p class="admin-empty error">${escapeHtml(error.message)}</p>`;
+  }
+}
+
 document.querySelectorAll("[data-admin-tab]").forEach((button) => {
   button.addEventListener("click", () => setActiveAdminTab(button.dataset.adminTab));
 });
@@ -351,6 +504,8 @@ document.querySelectorAll("[data-admin-search]").forEach((input) => {
     if (key === "pickups") loadPickups();
     if (key === "deliveries") loadDeliveries();
     if (key === "issues") loadIssues();
+    if (key === "suggestions") loadBookSuggestions();
+    if (key === "tableBookings") loadTableBookings();
   });
 });
 
@@ -361,11 +516,43 @@ document.querySelectorAll("[data-admin-category-filter]").forEach((select) => {
   });
 });
 
+document.querySelectorAll("[data-admin-language-filter]").forEach((select) => {
+  select.addEventListener("change", (event) => {
+    adminState.bookLanguage = event.target.value;
+    loadBooksForAdmin();
+  });
+});
+
 $("#admin-member-pagination").addEventListener("click", (event) => {
   const button = event.target.closest("[data-member-page]");
   if (!button) return;
   adminState.memberPage = Math.max(1, adminState.memberPage + (button.dataset.memberPage === "next" ? 1 : -1));
   loadMembers();
+});
+
+$("#admin-member-list").addEventListener("submit", async (event) => {
+  const form = event.target.closest("[data-member-message-form]");
+  if (!form) return;
+  event.preventDefault();
+  const button = form.querySelector("button[type=submit]");
+  const status = form.querySelector("[data-member-message-status]");
+  button.disabled = true;
+  status.textContent = "";
+  status.classList.remove("error");
+  try {
+    const data = Object.fromEntries(new FormData(form).entries());
+    const { message } = await api(`/api/admin/members/${encodeURIComponent(form.dataset.memberMessageForm)}/messages`, {
+      method: "POST",
+      body: JSON.stringify(data)
+    });
+    status.textContent = message;
+    form.reset();
+  } catch (error) {
+    status.textContent = error.message;
+    status.classList.add("error");
+  } finally {
+    button.disabled = false;
+  }
 });
 
 $("#admin-login-form").addEventListener("submit", async (event) => {
@@ -489,7 +676,10 @@ $("#admin-pickup-list").addEventListener("click", async (event) => {
       method: "PATCH",
       body: JSON.stringify({ status: button.dataset.pickupStatus })
     });
-    await Promise.all([loadPickups(), loadOverview()]);
+    await Promise.all([loadPickups(), loadOverview(), loadBooksForAdmin()]);
+    if (button.dataset.pickupStatus === "returned") {
+      window.alert("Book receipt confirmed. Its copy is now available in the library catalog.");
+    }
   } catch (error) {
     button.disabled = false;
     window.alert(error.message);
@@ -521,7 +711,10 @@ $("#admin-delivery-list").addEventListener("click", async (event) => {
       method: "PATCH",
       body: JSON.stringify({ status: button.dataset.deliveryStatus })
     });
-    await Promise.all([loadDeliveries(), loadOverview()]);
+    await Promise.all([loadDeliveries(), loadOverview(), loadBooksForAdmin()]);
+    if (button.dataset.deliveryStatus === "returned") {
+      window.alert("Book receipt confirmed. Its copy is now available in the library catalog.");
+    }
   } catch (error) {
     button.disabled = false;
     window.alert(error.message);
@@ -547,9 +740,43 @@ $("#admin-issue-list").addEventListener("change", async (event) => {
   }
 });
 
+$("#admin-suggestion-list").addEventListener("change", async (event) => {
+  const select = event.target.closest("[data-book-suggestion-status]");
+  if (!select) return;
+  select.disabled = true;
+  try {
+    await api(`/api/admin/book-suggestions/${encodeURIComponent(select.dataset.bookSuggestionStatus)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: select.value })
+    });
+    await loadBookSuggestions();
+  } catch (error) {
+    window.alert(error.message);
+    await loadBookSuggestions();
+  }
+});
+
+$("#admin-table-booking-list").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-admin-cancel-table-booking]");
+  if (!button) return;
+  if (!window.confirm("Cancel this table booking? The table will become available again.")) return;
+  button.disabled = true;
+  try {
+    await api(`/api/admin/table-bookings/${encodeURIComponent(button.dataset.adminCancelTableBooking)}/cancel`, {
+      method: "PATCH"
+    });
+    await loadTableBookings();
+  } catch (error) {
+    window.alert(error.message);
+    await loadTableBookings();
+  }
+});
+
 $("#refresh-pickups").addEventListener("click", loadPickups);
 $("#refresh-deliveries").addEventListener("click", loadDeliveries);
+$("#refresh-table-bookings").addEventListener("click", loadTableBookings);
 $("#refresh-issues").addEventListener("click", loadIssues);
+$("#refresh-suggestions").addEventListener("click", loadBookSuggestions);
 $("#refresh-members").addEventListener("click", loadMembers);
 $("#admin-logout").addEventListener("click", async () => {
   try {

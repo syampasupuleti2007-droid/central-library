@@ -16,6 +16,7 @@ const bookSchema = new mongoose.Schema(
     coverId: Number,
     coverUrl: String,
     editionCount: Number,
+    totalCopies: { type: Number, min: 0, max: 1000000, default: 1 },
     source: String
   },
   { timestamps: true }
@@ -104,7 +105,9 @@ async function run() {
             },
             $setOnInsert: {
               category: inferCategory(doc.subject),
-              categoryManuallySet: false
+              language: "English",
+              categoryManuallySet: false,
+              totalCopies: 1
             }
           },
           upsert: true

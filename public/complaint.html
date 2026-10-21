@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#173d35">
+    <meta name="description" content="Send feedback or report an issue to Central Public Library.">
+    <title>Complaints — Central Public Library</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./profile.css">
+    <script src="./member-service.js" defer></script>
+  </head>
+  <body class="profile-page" data-member-service="complaint">
+    <header class="site-header">
+      <a class="brand" href="/#home" aria-label="Central Public Library home"><span class="brand-mark" aria-hidden="true">C</span><span class="brand-name">Central <span>Public Library</span></span></a>
+      <button class="menu-toggle" id="service-menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">☰</button>
+      <nav class="main-nav" id="service-main-nav" aria-label="Member navigation">
+        <a href="/#home">Home</a><a href="/#catalog">Explore books</a><a href="/profile.html">My profile</a>
+        <a href="/notifications.html">Notifications</a><a href="/table-bookings.html">Book a table</a><a href="/book-suggestion.html">Suggest a book</a><a class="active" href="/complaint.html" aria-current="page">Complaints</a>
+      </nav>
+      <div class="header-actions"><a class="text-button" href="/?login=1" id="service-login-link">Log in</a><a class="account-button hidden" id="service-user-link" href="/profile.html"></a><button class="text-button hidden" id="service-logout" type="button">Log out ↗</button></div>
+    </header>
+    <main>
+      <section class="profile-banner"><div><p class="eyebrow eyebrow-light"><span></span> COMMUNITY FEEDBACK</p><h1>Report an <em>issue.</em></h1><p>Share a concern with the library team and follow its progress.</p></div><div class="profile-banner-mark" aria-hidden="true">C</div></section>
+      <section class="profile-main section-wrap">
+        <div class="profile-message" id="service-message" role="status" aria-live="polite"><span class="profile-loading-mark" aria-hidden="true">C</span><p>Loading your complaints...</p></div>
+        <div class="profile-content profile-service-content hidden" id="service-content">
+          <section class="profile-complaint" aria-labelledby="complaint-title">
+            <div class="profile-service-heading"><div><p class="eyebrow">MEMBER SERVICES</p><h2 id="complaint-title">Submit a complaint</h2></div></div>
+            <div class="issue-board-layout">
+              <form class="issue-report-form" id="service-complaint-form">
+                <h3>Report an issue</h3>
+                <p>Your complaint is visible to you and library administrators. We will show status updates in your notifications.</p>
+                <label>Issue title<input name="title" required minlength="4" maxlength="120" placeholder="A short summary"></label>
+                <label>Category<select name="category" required><option value="">Choose a category</option><option>Facilities</option><option>Books &amp; collection</option><option>Website</option><option>Accessibility</option><option>Other</option></select></label>
+                <label>What happened?<textarea name="description" required minlength="10" maxlength="2000" rows="5" placeholder="Describe the problem (10–2,000 characters)"></textarea></label>
+                <label>Mobile number for SMS updates<input name="contactPhone" type="tel" inputmode="tel" autocomplete="tel" required pattern="\+[1-9][0-9]{7,14}" placeholder="+14155552671"><small>Include the country code, for example +14155552671.</small></label>
+                <label class="issue-sms-consent"><input name="smsConsent" type="checkbox" value="true" required><span>I agree to receive SMS updates about this report when it is submitted and when its status changes.</span></label>
+                <p class="form-message" id="service-complaint-message" role="status" aria-live="polite"></p>
+                <button class="button" type="submit">Submit complaint <span aria-hidden="true">→</span></button>
+              </form>
+              <div class="public-issue-list" id="service-complaint-list" aria-live="polite"><p class="empty-state">Loading your complaints...</p></div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer"><div class="footer-bottom"><span>© <span class="service-year"></span> Central Public Library</span><span>KNOWLEDGE IS FOR EVERYONE.</span><a href="/profile.html">MY PROFILE ↑</a></div></footer>
+  </body>
+</html>

@@ -80,7 +80,56 @@
             <p class="profile-security-note">Your password is securely stored and is never shown on this page.</p>
           </section>
 
-          <section class="profile-complaint" aria-labelledby="complaint-title">
+          <div class="profile-action-buttons" aria-label="Member services">
+            <a class="button button-outline profile-notification-button" id="open-notifications" href="/notifications.html">
+              Notifications <span class="profile-notification-count hidden" id="profile-notification-count" aria-label="Unread notifications">0</span>
+            </a>
+            <a class="button" id="open-table-booking" href="/table-bookings.html">Book a table <span aria-hidden="true">→</span></a>
+            <a class="button" id="open-book-suggestion" href="/book-suggestion.html">Suggest a book <span aria-hidden="true">→</span></a>
+            <a class="button button-outline" id="open-complaint" href="/complaint.html">Submit a complaint <span aria-hidden="true">→</span></a>
+          </div>
+
+          <section class="profile-notifications hidden" id="member-notifications" aria-labelledby="member-notifications-title">
+            <div class="profile-history-heading">
+              <div>
+                <p class="eyebrow">ACCOUNT UPDATES</p>
+                <h2 id="member-notifications-title">Notifications</h2>
+                <p class="profile-notifications-intro">Updates about your book requests, returns, table bookings, suggestions, and complaints.</p>
+              </div>
+              <div class="profile-notification-actions">
+                <button class="text-button" id="refresh-notifications" type="button">Refresh ↻</button>
+                <button class="text-button" id="mark-all-notifications-read" type="button">Mark all read</button>
+              </div>
+            </div>
+            <div class="profile-notification-list" id="profile-notification-list" aria-live="polite"><p class="empty-state">Loading notifications...</p></div>
+          </section>
+
+          <section class="profile-table-bookings hidden" id="table-bookings" aria-labelledby="table-bookings-title">
+            <div class="profile-history-heading">
+              <div>
+                <p class="eyebrow">FIND YOUR READING SPACE</p>
+                <h2 id="table-bookings-title">Book a study table</h2>
+                <p class="profile-table-intro">Choose a floor, date, and one-hour slot. Available tables are confirmed instantly. Each of the 5 floors has 30 tables.</p>
+              </div>
+            </div>
+            <form class="profile-table-form" id="table-booking-form">
+              <label>Date<input name="date" id="table-booking-date" type="date" required></label>
+              <label>Floor<select name="floor" id="table-booking-floor" required>
+                <option value="1">Floor 1</option>
+                <option value="2">Floor 2</option>
+                <option value="3">Floor 3</option>
+                <option value="4">Floor 4</option>
+                <option value="5">Floor 5</option>
+              </select></label>
+              <label>Available time slot<select name="startTime" id="table-booking-slot" required disabled><option value="">Choose a date and floor first</option></select></label>
+              <p class="form-message" id="table-booking-message" role="status" aria-live="polite"></p>
+              <button class="button" type="submit">Confirm table <span aria-hidden="true">→</span></button>
+            </form>
+            <div class="profile-table-list-heading"><h3>Your table bookings</h3><button class="text-button" id="refresh-table-bookings" type="button">Refresh ↻</button></div>
+            <div class="profile-table-booking-list" id="profile-table-booking-list" aria-live="polite"><p class="empty-state">Loading your table bookings...</p></div>
+          </section>
+
+          <section class="profile-complaint hidden" id="member-complaints" aria-labelledby="complaint-title">
             <div class="profile-history-heading">
               <div>
                 <p class="eyebrow">COMMUNITY FEEDBACK</p>
@@ -110,6 +159,27 @@
             </div>
           </section>
 
+          <section class="profile-suggestions hidden" id="book-suggestions" aria-labelledby="book-suggestions-title">
+            <div class="profile-history-heading">
+              <div>
+                <p class="eyebrow">GROW THE COLLECTION</p>
+                <h2 id="book-suggestions-title">Suggest a book</h2>
+              </div>
+            </div>
+            <div class="issue-board-layout">
+              <form class="issue-report-form" id="book-suggestion-form">
+                <h3>Request a title</h3>
+                <p>Tell the library about a book you would like us to add. Only you and library administrators can see your suggestion.</p>
+                <label>Book title<input name="title" required minlength="2" maxlength="200" placeholder="Title you would love to read"></label>
+                <label>Author<input name="author" maxlength="200" placeholder="Author, if known"></label>
+                <label>Why should we add it?<textarea name="details" maxlength="1000" rows="4" placeholder="Optional details or a short reason"></textarea></label>
+                <p class="form-message" id="book-suggestion-message" role="status"></p>
+                <button class="button" type="submit">Send suggestion <span aria-hidden="true">→</span></button>
+              </form>
+              <div class="profile-suggestion-list" id="profile-book-suggestions" aria-live="polite"><p class="empty-state">Loading your suggestions...</p></div>
+            </div>
+          </section>
+
           <section class="profile-history" aria-labelledby="history-title">
             <div class="profile-history-heading">
               <div>
@@ -124,6 +194,30 @@
         </div>
       </section>
     </main>
+
+    <aside class="profile-chat hidden" id="profile-chat" aria-label="Library assistant">
+      <section class="profile-chat-panel hidden" id="profile-chat-panel" aria-labelledby="profile-chat-title">
+        <div class="profile-chat-heading">
+          <div>
+            <h2 id="profile-chat-title">Library AI Assistant</h2>
+            <p>Built-in answers · No AI API used</p>
+          </div>
+          <button class="profile-chat-close" id="profile-chat-close" type="button" aria-label="Close library assistant">×</button>
+        </div>
+        <div class="profile-chat-messages" id="profile-chat-messages" role="log" aria-live="polite" aria-relevant="additions">
+          <p class="profile-chat-bubble profile-chat-bot">Hello! I can help with table bookings, book requests, returns, delivery tracking, suggestions, and complaints. What would you like to know?</p>
+        </div>
+        <form class="profile-chat-form" id="profile-chat-form">
+          <label class="visually-hidden" for="profile-chat-input">Ask the library assistant</label>
+          <input id="profile-chat-input" name="message" type="text" maxlength="300" autocomplete="off" placeholder="Ask a library question..." required>
+          <button class="button" type="submit" aria-label="Send message">Send</button>
+        </form>
+        <p class="profile-chat-disclaimer">This local helper uses preset responses and cannot access live book or account data.</p>
+      </section>
+      <button class="profile-chat-toggle" id="profile-chat-toggle" type="button" aria-controls="profile-chat-panel" aria-expanded="false">
+        <span aria-hidden="true">✦</span> Ask the library
+      </button>
+    </aside>
 
     <footer class="site-footer">
       <div class="footer-top">

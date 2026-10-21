@@ -57,11 +57,14 @@
             <button class="admin-section-tab" type="button" data-admin-tab="members">Members</button>
             <button class="admin-section-tab" type="button" data-admin-tab="pickups">Pickup requests</button>
             <button class="admin-section-tab" type="button" data-admin-tab="deliveries">Delivery requests</button>
+            <button class="admin-section-tab" type="button" data-admin-tab="table-bookings">Table bookings</button>
+            <button class="admin-section-tab" type="button" data-admin-tab="suggestions">Book suggestions</button>
             <button class="admin-section-tab" type="button" data-admin-tab="issues">Public issue reports</button>
           </div>
 
           <div class="admin-panel-section" data-admin-panel="overview">
             <div class="admin-stat-grid" id="admin-stats"></div>
+            <div class="admin-overview-charts" id="admin-overview-charts" aria-live="polite"></div>
           </div>
 
           <section class="admin-panel-section admin-section hidden" data-admin-panel="library" aria-labelledby="location-title">
@@ -84,7 +87,7 @@
           </section>
 
           <section class="admin-panel-section admin-section hidden" data-admin-panel="books" aria-labelledby="books-title">
-            <div class="admin-section-heading"><div><p class="eyebrow">COLLECTION</p><h2 id="books-title">Book management</h2><p>Expand the public catalog with a new title, author, and cover image.</p></div></div>
+            <div class="admin-section-heading"><div><p class="eyebrow">COLLECTION</p><h2 id="books-title">Book management</h2><p>Manage book details and the number of copies in the collection.</p></div></div>
             <form class="admin-settings-form" id="admin-add-book-form">
               <label>Title<input name="title" required maxlength="300"></label>
               <label>Author<input name="author" maxlength="200" placeholder="Unknown author"></label>
@@ -94,7 +97,9 @@
                 <option>Fantasy</option><option>History</option><option>Horror</option><option>Mystery</option>
                 <option>Nonfiction</option><option>Philosophy</option><option>Romance</option><option>Science Fiction</option><option>Other</option>
               </select></label>
+              <label>Language<input name="language" required maxlength="100" value="English" placeholder="English"></label>
               <label>Publication year<input name="year" type="number" min="1" max="2100"></label>
+              <label>Copies in collection<input name="totalCopies" type="number" min="0" max="1000000" step="1" value="1" required></label>
               <label>Cover image URL<input name="coverUrl" type="url" maxlength="2048" placeholder="https://example.com/cover.jpg"></label>
               <div class="admin-form-actions"><p class="admin-message" id="book-message" role="status"></p><button class="button" type="submit">Add to collection <span aria-hidden="true">→</span></button></div>
             </form>
@@ -108,7 +113,10 @@
                   <option>Nonfiction</option><option>Philosophy</option><option>Romance</option><option>Science Fiction</option><option>Other</option>
                 </select>
               </label>
-              <div class="admin-book-search"><label>Search <input type="search" placeholder="Search books" data-admin-search="books"></label></div>
+              <label class="admin-book-category-filter">Language
+                <select data-admin-language-filter="books"><option value="All">All languages</option></select>
+              </label>
+              <div class="admin-book-search"><label>Search <input type="search" placeholder="Search title, author, category, or language" data-admin-search="books"></label></div>
             </div>
             <div class="admin-delivery-list" id="admin-book-manager"><p class="admin-empty">Loading catalog books...</p></div>
           </section>
@@ -121,7 +129,7 @@
           </section>
 
           <section class="admin-panel-section admin-section hidden" data-admin-panel="pickups" aria-labelledby="pickup-title">
-            <div class="admin-section-heading"><div><p class="eyebrow">FULFILLMENT</p><h2 id="pickup-title">Library pickup requests</h2><p>Approve requests, update pickup status, or mark items returned when a member picks them up.</p></div><button class="button button-small" id="refresh-pickups" type="button">Refresh pickups ↻</button></div>
+            <div class="admin-section-heading"><div><p class="eyebrow">FULFILLMENT</p><h2 id="pickup-title">Library pickup requests</h2><p>Approve requests and review member return requests. Confirm a book's receipt to make its copy available again.</p></div><button class="button button-small" id="refresh-pickups" type="button">Refresh pickups ↻</button></div>
             <div class="admin-search-field"><label>Search pickup requests <input type="search" placeholder="Filter by member or title" data-admin-search="pickups"></label></div>
             <div class="admin-delivery-list" id="admin-pickup-list"><p class="admin-empty">Loading pickup requests...</p></div>
           </section>
@@ -132,10 +140,22 @@
             <div class="admin-delivery-list" id="admin-delivery-list"><p class="admin-empty">Loading delivery requests...</p></div>
           </section>
 
+          <section class="admin-panel-section admin-section hidden" data-admin-panel="table-bookings" aria-labelledby="table-bookings-admin-title">
+            <div class="admin-section-heading"><div><p class="eyebrow">READING SPACE</p><h2 id="table-bookings-admin-title">Table bookings</h2><p>View member reservations across all 5 floors. There are 30 tables per floor; confirmed bookings reserve a table for one-hour slots.</p></div><button class="button button-small" id="refresh-table-bookings" type="button">Refresh bookings ↻</button></div>
+            <div class="admin-search-field"><label>Search table bookings <input type="search" placeholder="Filter by member, date, floor, table, or status" data-admin-search="tableBookings"></label></div>
+            <div class="admin-table-booking-list" id="admin-table-booking-list"><p class="admin-empty">Loading table bookings...</p></div>
+          </section>
+
           <section class="admin-panel-section admin-section hidden" data-admin-panel="issues" aria-labelledby="issues-title">
             <div class="admin-section-heading"><div><p class="eyebrow">COMMUNITY FEEDBACK</p><h2 id="issues-title">Public issue reports</h2><p>Review reports submitted from the public site and update their visible status.</p></div><button class="button button-small" id="refresh-issues" type="button">Refresh issues ↻</button></div>
             <div class="admin-search-field"><label>Search issue reports <input type="search" placeholder="Filter by member, title, or category" data-admin-search="issues"></label></div>
             <div class="admin-issue-list" id="admin-issue-list"><p class="admin-empty">Loading issue reports...</p></div>
+          </section>
+
+          <section class="admin-panel-section admin-section hidden" data-admin-panel="suggestions" aria-labelledby="suggestions-title">
+            <div class="admin-section-heading"><div><p class="eyebrow">COLLECTION IDEAS</p><h2 id="suggestions-title">Book suggestions</h2><p>Review member-submitted titles and update each suggestion as it is considered.</p></div><button class="button button-small" id="refresh-suggestions" type="button">Refresh suggestions ↻</button></div>
+            <div class="admin-search-field"><label>Search suggestions <input type="search" placeholder="Filter by title, author, member, or status" data-admin-search="suggestions"></label></div>
+            <div class="admin-suggestion-list" id="admin-suggestion-list"><p class="admin-empty">Loading book suggestions...</p></div>
           </section>
         </div>
       </section>

@@ -132,10 +132,13 @@ async function initialize() {
     if (!librarySettings.deliveryEnabled) {
       throw new Error("Home delivery is currently unavailable. Please choose library pickup.");
     }
+    if (Number(book.availableCopies ?? book.totalCopies ?? 1) === 0) {
+      throw new Error("This book is not available right now. All copies are currently booked.");
+    }
 
     const title = escapeHtml(book.title || "Selected book");
     const coverUrl = book.coverUrl || (book.coverId ? `https://covers.openlibrary.org/b/id/${Number(book.coverId)}-M.jpg` : "");
-    $("#payment-book").innerHTML = `<span class="fulfillment-book-cover">${coverUrl ? `<img src="${escapeHtml(coverUrl)}" alt="Cover of ${title}">` : `<span>${title}</span>`}</span><span class="fulfillment-book-info"><span class="eyebrow">YOUR SELECTED BOOK</span><strong>${title}</strong><span>by ${escapeHtml(book.author || "Unknown author")}</span></span>`;
+    $("#payment-book").innerHTML = `<span class="fulfillment-book-cover">${coverUrl ? `<img src="${escapeHtml(coverUrl)}" alt="Cover of ${title}">` : `<span>${title}</span>`}</span><span class="fulfillment-book-info"><span class="eyebrow">YOUR SELECTED BOOK</span><strong>${title}</strong><span>by ${escapeHtml(book.author || "Unknown author")}</span><span>${Number(book.availableCopies ?? book.totalCopies ?? 1)} of ${escapeHtml(book.totalCopies ?? 1)} copies available</span></span>`;
     renderAddress(deliveryAddress);
     $("#payment-submit").disabled = false;
   } catch (error) {

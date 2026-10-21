@@ -43,6 +43,7 @@ const bookSchema = new mongoose.Schema(
     workKey: { type: String, unique: true, sparse: true },
     title: { type: String, required: true, trim: true, maxlength: 300 },
     author: { type: String, default: "Unknown author", trim: true },
+    language: { type: String, default: "English", trim: true, maxlength: 100 },
     category: { type: String, enum: bookCategories, default: "Other" },
     categoryManuallySet: { type: Boolean, default: false, select: false },
     year: Number,
@@ -51,6 +52,8 @@ const bookSchema = new mongoose.Schema(
     coverId: Number,
     coverUrl: { type: String, trim: true, maxlength: 2048 },
     editionCount: Number,
+    totalCopies: { type: Number, min: 0, max: 1000000, default: 1 },
+    copiesInUse: { type: Number, min: 0, default: 0 },
     source: { type: String, default: "staff" }
   },
   { timestamps: true }
@@ -62,7 +65,7 @@ const loanSchema = new mongoose.Schema(
   {
     member: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     book: { type: mongoose.Schema.Types.ObjectId, ref: "Book", required: true },
-    status: { type: String, enum: ["requested", "approved", "returned", "declined"], default: "requested" },
+    status: { type: String, enum: ["requested", "approved", "return_requested", "returned", "declined"], default: "requested" },
     fulfillmentMethod: { type: String, enum: ["pickup", "delivery"], default: "pickup" },
     deliveryFeeRupees: { type: Number, min: 0, default: 0 },
     paymentStatus: { type: String, enum: ["not_required", "demo_only"], default: "not_required" },
@@ -82,7 +85,9 @@ const loanSchema = new mongoose.Schema(
       enum: ["confirmed", "preparing", "out_for_delivery", "delivered"],
       default: "confirmed"
     },
-    dueAt: Date
+    dueAt: Date,
+    returnRequestedAt: Date,
+    deliveredAt: Date
   },
   { timestamps: true }
 );
@@ -101,6 +106,56 @@ const issueSchema = new mongoose.Schema(
 );
 
 issueSchema.index({ createdAt: -1 });
+
+const bookSuggestionSchema = new mongoose.Schema(
+  {
+    title: { type: String, required: true, trim: true, maxlength: 200 },
+    author: { type: String, trim: true, maxlength: 200, default: "" },
+    details: { type: String, trim: true, maxlength: 1000, default: "" },
+    suggestedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    status: { type: String, enum: ["submitted", "reviewing", "approved", "declined", "added"], default: "submitted" }
+  },
+  { timestamps: true }
+);
+
+bookSuggestionSchema.index({ createdAt: -1 });
+
+const tableBookingSchema = new mongoose.Schema(
+  {
+    member: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    date: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+    startTime: { type: String, required: true, match: /^\d{2}:\d{2}$/ },
+    endTime: { type: String, required: true, match: /^\d{2}:\d{2}$/ },
+    floor: { type: Number, required: true, min: 1, max: 5 },
+    tableNumber: { type: Number, required: true, min: 1, max: 30 },
+    status: { type: String, enum: ["confirmed", "cancelled"], default: "confirmed" }
+  },
+  { timestamps: true }
+);
+
+tableBookingSchema.index(
+  { date: 1, startTime: 1, floor: 1, tableNumber: 1 },
+  { unique: true, partialFilterExpression: { status: "confirmed" } }
+);
+tableBookingSchema.index(
+  { member: 1, date: 1, startTime: 1 },
+  { unique: true, partialFilterExpression: { status: "confirmed" } }
+);
+tableBookingSchema.index({ date: 1, startTime: 1, floor: 1, status: 1 });
+
+const memberNotificationSchema = new mongoose.Schema(
+  {
+    member: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    title: { type: String, required: true, trim: true, maxlength: 120 },
+    message: { type: String, required: true, trim: true, maxlength: 1000 },
+    category: { type: String, enum: ["loan", "return", "delivery", "table", "suggestion", "complaint", "admin_message"], required: true },
+    readAt: { type: Date, default: null }
+  },
+  { timestamps: true }
+);
+
+memberNotificationSchema.index({ member: 1, createdAt: -1 });
+memberNotificationSchema.index({ member: 1, readAt: 1 });
 
 const librarySettingsSchema = new mongoose.Schema(
   {
@@ -125,7 +180,14 @@ const User = mongoose.model("User", userSchema);
 const Book = mongoose.model("Book", bookSchema);
 const Loan = mongoose.model("Loan", loanSchema);
 const Issue = mongoose.model("Issue", issueSchema);
+const BookSuggestion = mongoose.model("BookSuggestion", bookSuggestionSchema);
+const TableBooking = mongoose.model("TableBooking", tableBookingSchema);
+const MemberNotification = mongoose.model("MemberNotification", memberNotificationSchema);
 const LibrarySettings = mongoose.model("LibrarySettings", librarySettingsSchema);
+const activeLoanStatuses = ["requested", "approved", "return_requested"];
+const TABLES_PER_FLOOR = 30;
+const TABLE_FLOORS = 5;
+const TABLE_BOOKING_DAYS_AHEAD = 30;
 
 const defaultLibrarySettings = {
   name: "Central Public Library",
@@ -151,6 +213,105 @@ async function getLibrarySettings() {
   return settings;
 }
 
+function localDateString(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function isCalendarDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
+}
+
+function isBookableDate(value) {
+  if (!isCalendarDate(value)) return false;
+  const today = new Date();
+  const lastBookableDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  lastBookableDate.setDate(lastBookableDate.getDate() + TABLE_BOOKING_DAYS_AHEAD);
+  return value >= localDateString(today) && value <= localDateString(lastBookableDate);
+}
+
+function parseClock(hourValue, minuteValue, periodValue) {
+  let hour = Number(hourValue);
+  const minute = Number(minuteValue || 0);
+  const period = periodValue?.toLowerCase();
+  if (minute > 59 || (period && (hour < 1 || hour > 12)) || (!period && hour > 23)) return null;
+  if (period) {
+    hour %= 12;
+    if (period === "pm") hour += 12;
+  }
+  return hour * 60 + minute;
+}
+
+function parseOpeningHours(value) {
+  const hours = String(value ?? "");
+  if (/\b(closed|not open)\b/i.test(hours)) return [];
+  const match = hours.match(/^\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:-|–|—|to)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*$/i);
+  if (!match) return null;
+  const open = parseClock(match[1], match[2], match[3]);
+  const close = parseClock(match[4], match[5], match[6]);
+  if (open === null || close === null || close <= open) return null;
+  return { open, close };
+}
+
+function openingHoursForDate(settings, date) {
+  const weekday = new Date(`${date}T12:00:00`).getDay();
+  const field = weekday === 0 ? "sundayHours" : weekday === 6 ? "saturdayHours" : "weekdayHours";
+  return parseOpeningHours(settings[field]);
+}
+
+function tableBookingSlots(openingHours, date) {
+  if (!openingHours || Array.isArray(openingHours)) return [];
+  const slots = [];
+  const now = new Date();
+  const currentDate = localDateString(now);
+  const currentTime = now.getHours() * 60 + now.getMinutes();
+  for (let start = openingHours.open; start + 60 <= openingHours.close; start += 60) {
+    if (date === currentDate && start <= currentTime) continue;
+    const end = start + 60;
+    const format = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+    slots.push({ startTime: format(start), endTime: format(end) });
+  }
+  return slots;
+}
+
+function withBookAvailability(books) {
+  return books.map((book) => {
+    const totalCopies = book.totalCopies ?? 1;
+    const copiesInUse = book.copiesInUse ?? 0;
+    return {
+      ...book,
+      totalCopies,
+      copiesInUse,
+      availableCopies: Math.max(0, totalCopies - copiesInUse)
+    };
+  });
+}
+
+async function reserveBookCopy(bookId) {
+  return Book.findOneAndUpdate(
+    {
+      _id: bookId,
+      $expr: {
+        $lt: [
+          { $ifNull: ["$copiesInUse", 0] },
+          { $ifNull: ["$totalCopies", 1] }
+        ]
+      }
+    },
+    { $inc: { copiesInUse: 1 } },
+    { new: true }
+  );
+}
+
+async function releaseBookCopy(bookId) {
+  await Book.updateOne(
+    { _id: bookId, copiesInUse: { $gt: 0 } },
+    { $inc: { copiesInUse: -1 } }
+  );
+}
+
 app.disable("x-powered-by");
 app.use(helmet());
 app.use(express.json({ limit: "20kb" }));
@@ -171,6 +332,14 @@ const issueSubmissionLimiter = rateLimit({
   standardHeaders: "draft-7",
   legacyHeaders: false,
   message: { error: "Too many issue reports from this connection. Please try again later." }
+});
+
+const bookSuggestionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many book suggestions from this connection. Please try again later." }
 });
 
 async function sendIssueSms(phone, message) {
@@ -236,6 +405,10 @@ async function requireAuth(req, res, next) {
 function requireAdmin(req, res, next) {
   if (req.user.role !== "admin") return res.status(403).json({ error: "Administrator access required." });
   next();
+}
+
+async function createMemberNotification(member, category, title, message) {
+  return MemberNotification.create({ member, category, title, message });
 }
 
 async function generateLibraryId() {
@@ -325,10 +498,271 @@ app.post("/api/auth/logout", (_req, res) => {
 
 app.get("/api/auth/me", requireAuth, (req, res) => res.json({ user: publicUser(req.user) }));
 
+app.get("/api/notifications/mine", requireAuth, async (req, res, next) => {
+  try {
+    const [notifications, unreadCount] = await Promise.all([
+      MemberNotification.find({ member: req.user._id })
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean(),
+      MemberNotification.countDocuments({ member: req.user._id, readAt: null })
+    ]);
+    res.json({ notifications, unreadCount });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/admin/members/:id/messages", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Choose a valid member." });
+    const { title, message } = req.body || {};
+    if (typeof title !== "string" || title.trim().length < 2 || title.trim().length > 120) {
+      return res.status(400).json({ error: "Message title must be between 2 and 120 characters." });
+    }
+    if (typeof message !== "string" || message.trim().length < 2 || message.trim().length > 1000) {
+      return res.status(400).json({ error: "Message must be between 2 and 1,000 characters." });
+    }
+    const member = await User.findOne({ _id: req.params.id, role: "member" }).select("_id").lean();
+    if (!member) return res.status(404).json({ error: "Library member not found." });
+    const notification = await createMemberNotification(
+      member._id,
+      "admin_message",
+      title.trim(),
+      message.trim()
+    );
+    res.status(201).json({ notification, message: "Message sent to the member's notifications." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/notifications/:id/read", requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Choose a valid notification." });
+    const notification = await MemberNotification.findOneAndUpdate(
+      { _id: req.params.id, member: req.user._id, readAt: null },
+      { $set: { readAt: new Date() } },
+      { new: true }
+    );
+    if (!notification) {
+      const existingNotification = await MemberNotification.exists({ _id: req.params.id, member: req.user._id });
+      if (!existingNotification) return res.status(404).json({ error: "That notification could not be found." });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/notifications/read-all", requireAuth, async (req, res, next) => {
+  try {
+    await MemberNotification.updateMany(
+      { member: req.user._id, readAt: null },
+      { $set: { readAt: new Date() } }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/library-settings", async (_req, res, next) => {
   try {
     const settings = await getLibrarySettings();
     res.json({ settings });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/table-bookings/availability", requireAuth, async (req, res, next) => {
+  try {
+    const { date, floor } = req.query;
+    const floorNumber = Number(floor);
+    if (!isBookableDate(date)) {
+      return res.status(400).json({ error: `Choose a valid date within the next ${TABLE_BOOKING_DAYS_AHEAD} days.` });
+    }
+    if (!Number.isInteger(floorNumber) || floorNumber < 1 || floorNumber > TABLE_FLOORS) {
+      return res.status(400).json({ error: `Choose a floor from 1 to ${TABLE_FLOORS}.` });
+    }
+    const settings = await getLibrarySettings();
+    const openingHours = openingHoursForDate(settings, date);
+    if (openingHours === null) {
+      return res.status(400).json({ error: "The library opening hours are not in a supported format. Please contact the library administrator." });
+    }
+    const [bookings, memberBookings] = await Promise.all([
+      TableBooking.find({ date, floor: floorNumber, status: "confirmed" })
+      .select("startTime tableNumber")
+        .lean(),
+      TableBooking.find({ date, member: req.user._id, status: "confirmed" })
+        .select("startTime")
+        .lean()
+    ]);
+    const occupiedBySlot = new Map();
+    const memberSlots = new Set(memberBookings.map((booking) => booking.startTime));
+    for (const booking of bookings) {
+      if (!occupiedBySlot.has(booking.startTime)) occupiedBySlot.set(booking.startTime, new Set());
+      occupiedBySlot.get(booking.startTime).add(booking.tableNumber);
+    }
+    const slots = tableBookingSlots(openingHours, date).map((slot) => ({
+      ...slot,
+      availableTables: TABLES_PER_FLOOR - (occupiedBySlot.get(slot.startTime)?.size || 0),
+      alreadyBooked: memberSlots.has(slot.startTime)
+    }));
+    res.json({ slots, tablesPerFloor: TABLES_PER_FLOOR });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/table-bookings/mine", requireAuth, async (req, res, next) => {
+  try {
+    const bookings = await TableBooking.find({ member: req.user._id })
+      .sort({ date: -1, startTime: -1, createdAt: -1 })
+      .limit(100)
+      .lean();
+    res.json({ bookings });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/table-bookings", requireAuth, async (req, res, next) => {
+  try {
+    const { date, startTime } = req.body || {};
+    const floor = Number(req.body?.floor);
+    if (!isBookableDate(date)) {
+      return res.status(400).json({ error: `Choose a valid date within the next ${TABLE_BOOKING_DAYS_AHEAD} days.` });
+    }
+    if (!Number.isInteger(floor) || floor < 1 || floor > TABLE_FLOORS) {
+      return res.status(400).json({ error: `Choose a floor from 1 to ${TABLE_FLOORS}.` });
+    }
+    if (typeof startTime !== "string" || !/^\d{2}:\d{2}$/.test(startTime)) {
+      return res.status(400).json({ error: "Choose a valid one-hour time slot." });
+    }
+    const settings = await getLibrarySettings();
+    const openingHours = openingHoursForDate(settings, date);
+    if (openingHours === null) {
+      return res.status(400).json({ error: "The library opening hours are not in a supported format. Please contact the library administrator." });
+    }
+    const slot = tableBookingSlots(openingHours, date).find((availableSlot) => availableSlot.startTime === startTime);
+    if (!slot) return res.status(400).json({ error: "Choose a time slot during library opening hours." });
+    const existingBooking = await TableBooking.exists({
+      member: req.user._id,
+      date,
+      startTime,
+      status: "confirmed"
+    });
+    if (existingBooking) {
+      return res.status(409).json({ error: "You already have a table booking for this time slot." });
+    }
+
+    const existingTables = await TableBooking.find({ date, startTime, floor, status: "confirmed" })
+      .distinct("tableNumber");
+    const occupiedTables = new Set(existingTables);
+    for (let tableNumber = 1; tableNumber <= TABLES_PER_FLOOR; tableNumber += 1) {
+      if (occupiedTables.has(tableNumber)) continue;
+      try {
+        const booking = await TableBooking.create({
+          member: req.user._id,
+          date,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          floor,
+          tableNumber
+        });
+        await createMemberNotification(
+          req.user._id,
+          "table",
+          "Table booking confirmed",
+          `Your table is confirmed. Table address: Floor ${floor}, Table ${tableNumber}. Date: ${date}, ${slot.startTime}–${slot.endTime}.`
+        );
+        return res.status(201).json({
+          booking,
+          message: `Your table is confirmed. Table address: Floor ${floor}, Table ${tableNumber}. Time: ${slot.startTime}–${slot.endTime}.`
+        });
+      } catch (error) {
+        if (error.code !== 11000) throw error;
+        const duplicateMemberBooking = await TableBooking.exists({
+          member: req.user._id,
+          date,
+          startTime,
+          status: "confirmed"
+        });
+        if (duplicateMemberBooking) {
+          return res.status(409).json({ error: "You already have a table booking for this time slot." });
+        }
+      }
+    }
+    return res.status(409).json({ error: "No tables are available on this floor for that time slot. Please choose another floor or time." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/table-bookings/:id/cancel", requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Choose a valid table booking." });
+    const booking = await TableBooking.findOneAndUpdate(
+      { _id: req.params.id, member: req.user._id, status: "confirmed" },
+      { $set: { status: "cancelled" } },
+      { new: true }
+    );
+    if (!booking) {
+      const existingBooking = await TableBooking.findOne({ _id: req.params.id, member: req.user._id }).select("status").lean();
+      if (!existingBooking) return res.status(404).json({ error: "That table booking could not be found." });
+      return res.status(409).json({ error: "This table booking is already cancelled." });
+    }
+    await createMemberNotification(
+      req.user._id,
+      "table",
+      "Table booking cancelled",
+      `Your booking for Floor ${booking.floor}, Table ${booking.tableNumber} on ${booking.date}, ${booking.startTime}–${booking.endTime}, was cancelled.`
+    );
+    res.json({ booking, message: "Your table booking was cancelled and the table is available again." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/admin/table-bookings", requireAuth, requireAdmin, async (_req, res, next) => {
+  try {
+    const bookings = await TableBooking.find()
+      .populate("member", "name email libraryId")
+      .sort({ date: -1, startTime: 1, floor: 1, tableNumber: 1 })
+      .limit(1000)
+      .lean();
+    res.json({ bookings });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/admin/table-bookings/:id/cancel", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Choose a valid table booking." });
+    const previousBooking = await TableBooking.findOne({ _id: req.params.id, status: "confirmed" }).select("member date startTime endTime floor tableNumber").lean();
+    if (!previousBooking) {
+      const existingBooking = await TableBooking.exists({ _id: req.params.id });
+      if (!existingBooking) return res.status(404).json({ error: "Table booking not found." });
+      return res.status(409).json({ error: "This table booking is already cancelled." });
+    }
+    const booking = await TableBooking.findOneAndUpdate(
+      { _id: req.params.id, status: "confirmed" },
+      { $set: { status: "cancelled" } },
+      { new: true }
+    );
+    if (!booking) {
+      return res.status(409).json({ error: "This table booking changed. Refresh the page and try again." });
+    }
+    await createMemberNotification(
+      previousBooking.member,
+      "table",
+      "Table booking cancelled by the library",
+      `The library cancelled your booking for Floor ${previousBooking.floor}, Table ${previousBooking.tableNumber} on ${previousBooking.date}, ${previousBooking.startTime}–${previousBooking.endTime}.`
+    );
+    res.json({ booking });
   } catch (error) {
     next(error);
   }
@@ -374,6 +808,12 @@ app.post("/api/issues", requireAuth, issueSubmissionLimiter, async (req, res, ne
       smsConsent: true,
       reportedBy: req.user._id
     });
+    await createMemberNotification(
+      req.user._id,
+      "complaint",
+      "Complaint received",
+      `Your complaint "${issue.title}" was received. You will see an update here when the library reviews it.`
+    );
     const notification = await sendIssueSms(
       issue.contactPhone,
       "Central Public Library: We received your issue report. Sign in to your profile for details and updates."
@@ -387,12 +827,65 @@ app.post("/api/issues", requireAuth, issueSubmissionLimiter, async (req, res, ne
   }
 });
 
+app.get("/api/book-suggestions/mine", requireAuth, async (req, res, next) => {
+  try {
+    const suggestions = await BookSuggestion.find({ suggestedBy: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .select("title author details status createdAt updatedAt")
+      .lean();
+    res.json({ suggestions });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/book-suggestions", requireAuth, bookSuggestionLimiter, async (req, res, next) => {
+  try {
+    const { title, author, details } = req.body || {};
+    if (typeof title !== "string" || title.trim().length < 2 || title.trim().length > 200) {
+      return res.status(400).json({ error: "Book title must be between 2 and 200 characters." });
+    }
+    if (author !== undefined && (typeof author !== "string" || author.trim().length > 200)) {
+      return res.status(400).json({ error: "Author must be 200 characters or fewer." });
+    }
+    if (details !== undefined && (typeof details !== "string" || details.trim().length > 1000)) {
+      return res.status(400).json({ error: "Additional details must be 1,000 characters or fewer." });
+    }
+    const suggestion = await BookSuggestion.create({
+      title: title.trim(),
+      author: typeof author === "string" ? author.trim() : "",
+      details: typeof details === "string" ? details.trim() : "",
+      suggestedBy: req.user._id
+    });
+    await createMemberNotification(
+      req.user._id,
+      "suggestion",
+      "Book suggestion received",
+      `Your suggestion "${suggestion.title}" was sent to the library team for review.`
+    );
+    res.status(201).json({ suggestion });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/books/languages", async (_req, res, next) => {
+  try {
+    const languages = await Book.distinct("language", { language: { $type: "string", $ne: "" } });
+    res.json({ languages: languages.sort((left, right) => left.localeCompare(right)) });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/books/:id", async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Choose a valid book." });
     const book = await Book.findById(req.params.id).lean();
     if (!book) return res.status(404).json({ error: "That book could not be found." });
-    res.json({ book });
+    const [availableBook] = withBookAvailability([book]);
+    res.json({ book: availableBook });
   } catch (error) {
     next(error);
   }
@@ -404,16 +897,22 @@ app.get("/api/books", async (req, res, next) => {
     const limit = Math.min(24, Math.max(1, Number.parseInt(req.query.limit, 10) || 12));
     const search = typeof req.query.search === "string" ? req.query.search.trim().slice(0, 100) : "";
     const category = typeof req.query.category === "string" ? req.query.category.trim() : "";
+    const language = typeof req.query.language === "string" ? req.query.language.trim() : "";
     if (category && category !== "All" && !bookCategories.includes(category)) {
       return res.status(400).json({ error: "Choose a valid book category." });
     }
+    if (language && language !== "All" && language.length > 100) {
+      return res.status(400).json({ error: "Choose a valid book language." });
+    }
     const filter = {};
     if (category && category !== "All") filter.category = category;
+    if (language && language !== "All") filter.language = new RegExp(`^${escapeRegex(language)}$`, "i");
     if (search) {
       filter.$or = [
         { title: { $regex: escapeRegex(search), $options: "i" } },
         { author: { $regex: escapeRegex(search), $options: "i" } },
         { category: { $regex: escapeRegex(search), $options: "i" } },
+        { language: { $regex: escapeRegex(search), $options: "i" } },
         { subjects: { $regex: escapeRegex(search), $options: "i" } }
       ];
     }
@@ -421,7 +920,7 @@ app.get("/api/books", async (req, res, next) => {
       Book.find(filter).sort({ title: 1 }).skip((page - 1) * limit).limit(limit).lean(),
       Book.countDocuments(filter)
     ]);
-    res.json({ books, page, pages: Math.ceil(total / limit), total });
+    res.json({ books: withBookAvailability(books), page, pages: Math.ceil(total / limit), total });
   } catch (error) {
     next(error);
   }
@@ -470,20 +969,40 @@ app.post("/api/loans", requireAuth, async (req, res, next) => {
     if (!book) return res.status(404).json({ error: "That book could not be found." });
     const activeCount = await Loan.countDocuments({
       member: req.user.id,
-      status: { $in: ["requested", "approved"] }
+      status: { $in: activeLoanStatuses }
     });
     if (activeCount >= 5) return res.status(400).json({ error: "You have reached the limit of five active book requests." });
-    const existing = await Loan.findOne({ member: req.user.id, book: bookId, status: { $in: ["requested", "approved"] } });
+    const existing = await Loan.findOne({ member: req.user.id, book: bookId, status: { $in: activeLoanStatuses } });
     if (existing) return res.status(409).json({ error: "You already have an active request for this book." });
-    const loan = await Loan.create({
-      member: req.user.id,
-      book: bookId,
-      fulfillmentMethod,
-      deliveryAddress: validatedAddress,
-      deliveryFeeRupees: fulfillmentMethod === "delivery" ? DELIVERY_FEE_RUPEES : 0,
-      paymentStatus: fulfillmentMethod === "delivery" ? "demo_only" : "not_required",
-      trackingStatus: fulfillmentMethod === "delivery" ? "confirmed" : undefined
-    });
+    const reservedBook = await reserveBookCopy(bookId);
+    if (!reservedBook) {
+      return res.status(409).json({ error: "This book is not available right now. All copies are currently booked." });
+    }
+    let loan;
+    try {
+      loan = await Loan.create({
+        member: req.user.id,
+        book: bookId,
+        fulfillmentMethod,
+        deliveryAddress: validatedAddress,
+        deliveryFeeRupees: fulfillmentMethod === "delivery" ? DELIVERY_FEE_RUPEES : 0,
+        paymentStatus: fulfillmentMethod === "delivery" ? "demo_only" : "not_required",
+        trackingStatus: fulfillmentMethod === "delivery" ? "confirmed" : undefined
+      });
+    } catch (error) {
+      try {
+        await releaseBookCopy(bookId);
+      } catch (releaseError) {
+        console.error("Unable to release a book copy after its request could not be saved:", releaseError);
+      }
+      throw error;
+    }
+    await createMemberNotification(
+      req.user._id,
+      "loan",
+      "Book request received",
+      `Your request for "${book.title}" was received and is waiting for library approval.`
+    );
     res.status(201).json({ loan });
   } catch (error) {
     next(error);
@@ -499,20 +1018,99 @@ app.get("/api/loans/mine", requireAuth, async (req, res, next) => {
   }
 });
 
+app.post("/api/loans/:id/return", requireAuth, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ error: "Choose a valid book request." });
+    }
+    const loan = await Loan.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        member: req.user.id,
+        status: "approved",
+        $or: [
+          { fulfillmentMethod: "pickup" },
+          {
+            fulfillmentMethod: "delivery",
+            $or: [{ trackingStatus: "delivered" }, { deliveredAt: { $exists: true } }]
+          }
+        ]
+      },
+      { $set: { status: "return_requested", returnRequestedAt: new Date() } },
+      { new: true, runValidators: true }
+    );
+    if (!loan) {
+      const existingLoan = await Loan.findOne({ _id: req.params.id, member: req.user.id }).select("status").lean();
+      if (!existingLoan) return res.status(404).json({ error: "That book request could not be found." });
+      if (existingLoan.status === "return_requested") {
+        return res.status(409).json({ error: "Your return request has already been received and is waiting for the library." });
+      }
+      if (existingLoan.status === "approved" && existingLoan.fulfillmentMethod === "delivery") {
+        return res.status(409).json({ error: "You can request a return after the delivery has been marked delivered." });
+      }
+      return res.status(409).json({ error: "Only a currently borrowed book can be returned." });
+    }
+    const book = await Book.findById(loan.book).select("title").lean();
+    await createMemberNotification(
+      req.user._id,
+      "return",
+      "Return request received",
+      `Your return request for "${book?.title || "your book"}" was received. The library will notify you when staff confirm it has been returned.`
+    );
+    res.json({
+      loan,
+      message: "Your return request has been received. Please bring the book to the library for staff to confirm its return."
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/admin/overview", requireAuth, requireAdmin, async (_req, res, next) => {
   try {
-    const [books, members, loans, recentLoans] = await Promise.all([
+    const [books, members, loans, inventory, loanStatusCounts, recentLoans] = await Promise.all([
       Book.countDocuments(),
       User.countDocuments({ role: "member" }),
-      Loan.countDocuments({ status: { $in: ["requested", "approved"] } }),
-      Loan.find({ status: { $in: ["requested", "approved"] } })
+      Loan.countDocuments({ status: { $in: activeLoanStatuses } }),
+      Book.aggregate([
+        {
+          $group: {
+            _id: null,
+            totalCopies: { $sum: { $ifNull: ["$totalCopies", 1] } },
+            copiesInUse: { $sum: { $ifNull: ["$copiesInUse", 0] } }
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            totalCopies: 1,
+            copiesInUse: 1,
+            availableCopies: {
+              $max: [0, { $subtract: ["$totalCopies", "$copiesInUse"] }]
+            }
+          }
+        }
+      ]),
+      Loan.aggregate([
+        { $group: { _id: "$status", count: { $sum: 1 } } }
+      ]),
+      Loan.find({ status: { $in: activeLoanStatuses } })
         .populate("member", "name email")
         .populate("book", "title author category")
-        .sort({ createdAt: -1 })
+        .sort({ updatedAt: -1 })
         .limit(50)
         .lean()
     ]);
-    res.json({ stats: { books, members, activeLoans: loans }, loans: recentLoans });
+    res.json({
+      stats: {
+        books,
+        members,
+        activeLoans: loans,
+        inventory: inventory[0] || { totalCopies: 0, copiesInUse: 0, availableCopies: 0 },
+        loanStatusCounts: Object.fromEntries(loanStatusCounts.map(({ _id, count }) => [_id, count]))
+      },
+      loans: recentLoans
+    });
   } catch (error) {
     next(error);
   }
@@ -532,6 +1130,57 @@ app.get("/api/admin/issues", requireAuth, requireAdmin, async (_req, res, next) 
   }
 });
 
+app.get("/api/admin/book-suggestions", requireAuth, requireAdmin, async (_req, res, next) => {
+  try {
+    const suggestions = await BookSuggestion.find()
+      .populate("suggestedBy", "name email")
+      .sort({ createdAt: -1 })
+      .limit(500)
+      .lean();
+    res.json({ suggestions });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/admin/book-suggestions/:id", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    const allowedStatuses = ["submitted", "reviewing", "approved", "declined", "added"];
+    if (!allowedStatuses.includes(req.body?.status)) {
+      return res.status(400).json({ error: "Choose a valid book suggestion status." });
+    }
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ error: "Choose a valid book suggestion." });
+    }
+    const previousSuggestion = await BookSuggestion.findById(req.params.id).select("status").lean();
+    if (!previousSuggestion) return res.status(404).json({ error: "Book suggestion not found." });
+    const suggestion = await BookSuggestion.findByIdAndUpdate(
+      req.params.id,
+      { $set: { status: req.body.status } },
+      { new: true, runValidators: true }
+    ).populate("suggestedBy", "name email").lean();
+    if (!suggestion) return res.status(404).json({ error: "Book suggestion not found." });
+    if (previousSuggestion?.status !== suggestion.status) {
+      const statusLabels = {
+        submitted: "submitted",
+        reviewing: "under review",
+        approved: "approved",
+        declined: "declined",
+        added: "added to the collection"
+      };
+      await createMemberNotification(
+        suggestion.suggestedBy._id,
+        "suggestion",
+        "Book suggestion updated",
+        `The library updated your suggestion "${suggestion.title}" to ${statusLabels[suggestion.status]}.`
+      );
+    }
+    res.json({ suggestion });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.patch("/api/admin/issues/:id", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { status } = req.body || {};
@@ -539,12 +1188,21 @@ app.patch("/api/admin/issues/:id", requireAuth, requireAdmin, async (req, res, n
       return res.status(400).json({ error: "Choose a valid issue status." });
     }
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Choose a valid issue." });
-    const previousIssue = await Issue.findById(req.params.id).select("title status contactPhone smsConsent").lean();
+    const previousIssue = await Issue.findById(req.params.id).select("title status contactPhone smsConsent reportedBy").lean();
     if (!previousIssue) return res.status(404).json({ error: "Issue report not found." });
     const issue = await Issue.findByIdAndUpdate(req.params.id, { $set: { status } }, { new: true, runValidators: true })
       .select("-contactPhone -smsConsent")
       .lean();
     if (!issue) return res.status(404).json({ error: "Issue report not found." });
+    if (previousIssue.status !== issue.status) {
+      const statusLabels = { submitted: "submitted", reviewing: "under review", resolved: "resolved" };
+      await createMemberNotification(
+        previousIssue.reportedBy,
+        "complaint",
+        "Complaint status updated",
+        `The library updated your complaint "${issue.title}" to ${statusLabels[issue.status]}.`
+      );
+    }
     const notification = previousIssue.status === status || !previousIssue.smsConsent || !previousIssue.contactPhone
       ? null
       : await sendIssueSms(
@@ -563,16 +1221,22 @@ app.get("/api/admin/books", requireAuth, requireAdmin, async (req, res, next) =>
     const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
     const search = typeof req.query.search === "string" ? req.query.search.trim().slice(0, 100) : "";
     const category = typeof req.query.category === "string" ? req.query.category.trim() : "";
+    const language = typeof req.query.language === "string" ? req.query.language.trim() : "";
     if (category && category !== "All" && !bookCategories.includes(category)) {
       return res.status(400).json({ error: "Choose a valid book category." });
     }
+    if (language && language !== "All" && language.length > 100) {
+      return res.status(400).json({ error: "Choose a valid book language." });
+    }
     const filter = {};
     if (category && category !== "All") filter.category = category;
+    if (language && language !== "All") filter.language = new RegExp(`^${escapeRegex(language)}$`, "i");
     if (search) {
       filter.$or = [
         { title: { $regex: escapeRegex(search), $options: "i" } },
         { author: { $regex: escapeRegex(search), $options: "i" } },
-        { category: { $regex: escapeRegex(search), $options: "i" } }
+        { category: { $regex: escapeRegex(search), $options: "i" } },
+        { language: { $regex: escapeRegex(search), $options: "i" } }
       ];
     }
     const [books, total] = await Promise.all([
@@ -588,15 +1252,21 @@ app.get("/api/admin/books", requireAuth, requireAdmin, async (req, res, next) =>
 app.put("/api/admin/books/:id", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Choose a valid book." });
-    const { title, author, year, coverUrl, category } = req.body || {};
+    const { title, author, year, coverUrl, category, language, totalCopies } = req.body || {};
     if (typeof title !== "string" || !title.trim() || title.trim().length > 300) {
       return res.status(400).json({ error: "A book title of up to 300 characters is required." });
     }
     if (author !== undefined && (typeof author !== "string" || author.trim().length > 200)) {
       return res.status(400).json({ error: "Author must be 200 characters or fewer." });
     }
+    if (typeof language !== "string" || !language.trim() || language.trim().length > 100) {
+      return res.status(400).json({ error: "Enter a book language of up to 100 characters." });
+    }
     if (!bookCategories.includes(category)) {
       return res.status(400).json({ error: "Choose a valid book category." });
+    }
+    if (totalCopies !== undefined && !isValidCopyCount(totalCopies)) {
+      return res.status(400).json({ error: "Enter a whole number of copies between 0 and 1,000,000." });
     }
     let validatedCoverUrl = "";
     if (coverUrl) {
@@ -618,20 +1288,32 @@ app.put("/api/admin/books/:id", requireAuth, requireAdmin, async (req, res, next
     const bookChanges = {
       title: title.trim(),
       author: author?.trim() || "Unknown author",
+      language: language.trim(),
       category,
       categoryManuallySet: true,
       coverUrl: validatedCoverUrl
     };
     if (parsedYear !== undefined) bookChanges.year = parsedYear;
-    const book = await Book.findByIdAndUpdate(
-      req.params.id,
+    if (totalCopies !== undefined) bookChanges.totalCopies = Number(totalCopies);
+    const bookFilter = { _id: req.params.id };
+    if (totalCopies !== undefined) {
+      bookFilter.$expr = {
+        $lte: [{ $ifNull: ["$copiesInUse", 0] }, Number(totalCopies)]
+      };
+    }
+    const book = await Book.findOneAndUpdate(
+      bookFilter,
       {
         $set: bookChanges,
         ...(parsedYear === undefined ? { $unset: { year: 1 } } : {})
       },
       { new: true, runValidators: true }
     );
-    if (!book) return res.status(404).json({ error: "That book could not be found." });
+    if (!book) {
+      const existingBook = await Book.exists({ _id: req.params.id });
+      if (!existingBook) return res.status(404).json({ error: "That book could not be found." });
+      return res.status(400).json({ error: "Copies in collection cannot be fewer than the number already booked." });
+    }
     res.json({ book });
   } catch (error) {
     next(error);
@@ -676,7 +1358,7 @@ app.get("/api/admin/pickups", requireAuth, requireAdmin, async (_req, res, next)
     const pickups = await Loan.find({ fulfillmentMethod: "pickup" })
       .populate("member", "name email")
       .populate("book", "title author category")
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 })
       .limit(100)
       .lean();
     res.json({ pickups });
@@ -690,7 +1372,7 @@ app.get("/api/admin/deliveries", requireAuth, requireAdmin, async (_req, res, ne
     const loans = await Loan.find({ fulfillmentMethod: "delivery" })
       .populate("member", "name email")
       .populate("book", "title author category")
-      .sort({ createdAt: -1 })
+      .sort({ updatedAt: -1 })
       .limit(100)
       .lean();
     res.json({ deliveries: loans });
@@ -750,12 +1432,18 @@ app.get("/api/admin/members", requireAuth, requireAdmin, async (req, res, next) 
 
 app.post("/api/admin/books", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const { title, author, year, coverUrl, category } = req.body || {};
+    const { title, author, year, coverUrl, category, language, totalCopies } = req.body || {};
     if (typeof title !== "string" || !title.trim() || title.trim().length > 300) {
       return res.status(400).json({ error: "A book title of up to 300 characters is required." });
     }
     if (!bookCategories.includes(category)) {
       return res.status(400).json({ error: "Choose a valid book category." });
+    }
+    if (typeof language !== "string" || !language.trim() || language.trim().length > 100) {
+      return res.status(400).json({ error: "Enter a book language of up to 100 characters." });
+    }
+    if (totalCopies !== undefined && !isValidCopyCount(totalCopies)) {
+      return res.status(400).json({ error: "Enter a whole number of copies between 0 and 1,000,000." });
     }
     let validatedCoverUrl;
     if (coverUrl) {
@@ -773,10 +1461,12 @@ app.post("/api/admin/books", requireAuth, requireAdmin, async (req, res, next) =
     const book = await Book.create({
       title: title.trim(),
       author: typeof author === "string" && author.trim() ? author.trim().slice(0, 200) : "Unknown author",
+      language: language.trim(),
       category,
       categoryManuallySet: true,
       year: Number.isInteger(Number(year)) && Number(year) > 0 ? Number(year) : undefined,
-      coverUrl: validatedCoverUrl
+      coverUrl: validatedCoverUrl,
+      ...(totalCopies === undefined ? {} : { totalCopies: Number(totalCopies) })
     });
     res.status(201).json({ book });
   } catch (error) {
@@ -807,10 +1497,64 @@ app.patch("/api/admin/loans/:id", requireAuth, requireAdmin, async (req, res, ne
     }
     const loan = await Loan.findById(req.params.id);
     if (!loan) return res.status(404).json({ error: "Loan request not found." });
-    loan.status = status;
-    if (status === "approved") loan.dueAt = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000);
-    await loan.save();
-    res.json({ loan });
+    const allowedTransitions = {
+      requested: ["approved", "declined"],
+      approved: ["declined"],
+      return_requested: ["returned"]
+    };
+    if (!allowedTransitions[loan.status]?.includes(status)) {
+      if (status === "returned") {
+        return res.status(400).json({ error: "A member must request a return before staff can confirm the book was received." });
+      }
+      return res.status(409).json({ error: "This request cannot be changed from its current status." });
+    }
+    const wasActive = activeLoanStatuses.includes(loan.status);
+    const becomesActive = activeLoanStatuses.includes(status);
+    let reservedCopy = false;
+    if (!wasActive && becomesActive) {
+      const book = await reserveBookCopy(loan.book);
+      if (!book) {
+        return res.status(409).json({ error: "This book is not available right now. All copies are currently booked." });
+      }
+      reservedCopy = true;
+    }
+    const changes = { status };
+    if (status === "approved") changes.dueAt = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000);
+    const updatedLoan = await Loan.findOneAndUpdate(
+      { _id: loan._id, status: loan.status },
+      { $set: changes },
+      { new: true, runValidators: true }
+    );
+    if (!updatedLoan) {
+      if (reservedCopy) await releaseBookCopy(loan.book);
+      return res.status(409).json({ error: "This request has changed. Refresh the page and try again." });
+    }
+    if (wasActive && !becomesActive) await releaseBookCopy(loan.book);
+    const book = await Book.findById(loan.book).select("title").lean();
+    const bookTitle = book?.title || "your book";
+    if (status === "approved") {
+      await createMemberNotification(
+        loan.member,
+        "loan",
+        "Book request approved",
+        `Your request for "${bookTitle}" was approved. ${loan.fulfillmentMethod === "delivery" ? "Check your delivery tracking in Book history." : "You can pick up the book at the library."}`
+      );
+    } else if (status === "declined") {
+      await createMemberNotification(
+        loan.member,
+        "loan",
+        "Book request declined",
+        `The library declined your request for "${bookTitle}". The reserved copy is available again.`
+      );
+    } else if (status === "returned") {
+      await createMemberNotification(
+        loan.member,
+        "return",
+        "Book return confirmed",
+        `The library confirmed receipt of "${bookTitle}". Its copy is available again.`
+      );
+    }
+    res.json({ loan: updatedLoan });
   } catch (error) {
     next(error);
   }
@@ -828,15 +1572,32 @@ app.patch("/api/admin/loans/:id/tracking", requireAuth, requireAdmin, async (req
     if (loan.fulfillmentMethod !== "delivery") {
       return res.status(400).json({ error: "Tracking updates are only available for delivery requests." });
     }
-    if (["declined", "returned"].includes(loan.status)) {
-      return res.status(400).json({ error: "The delivery tracker cannot be changed for a declined or returned request." });
+    if (["declined", "return_requested", "returned"].includes(loan.status)) {
+      return res.status(400).json({ error: "The delivery tracker cannot be changed for a declined, return-requested, or returned request." });
     }
+    const previousTrackingStatus = loan.trackingStatus;
     loan.trackingStatus = trackingStatus;
     if (trackingStatus === "delivered") {
       loan.status = "approved";
       loan.dueAt = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000);
+      loan.deliveredAt = loan.deliveredAt || new Date();
     }
     await loan.save();
+    if (previousTrackingStatus !== trackingStatus) {
+      const trackingMessages = {
+        confirmed: "Your delivery request has been confirmed.",
+        preparing: "Your book is being prepared for delivery.",
+        out_for_delivery: "Your book is out for delivery.",
+        delivered: "Your book delivery is marked as delivered."
+      };
+      const book = await Book.findById(loan.book).select("title").lean();
+      await createMemberNotification(
+        loan.member,
+        "delivery",
+        "Delivery status updated",
+        `${trackingMessages[trackingStatus]}${book?.title ? ` Book: "${book.title}".` : ""}`
+      );
+    }
     res.json({ loan });
   } catch (error) {
     next(error);
@@ -845,6 +1606,13 @@ app.patch("/api/admin/loans/:id/tracking", requireAuth, requireAdmin, async (req
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isValidCopyCount(value) {
+  return (typeof value === "number" || (typeof value === "string" && value.trim() !== ""))
+    && Number.isInteger(Number(value))
+    && Number(value) >= 0
+    && Number(value) <= 1000000;
 }
 
 app.use("/api", (req, res) => res.status(404).json({ error: `API route not found: ${req.method} ${req.path}` }));
@@ -881,6 +1649,45 @@ async function start() {
       }
     })));
     console.log(`Assigned categories to ${uncategorizedBooks.length} existing books using their catalog subjects.`);
+  }
+
+  const booksWithoutLanguage = await Book.updateMany(
+    { $or: [{ language: { $exists: false } }, { language: null }, { language: "" }] },
+    { $set: { language: "English" } }
+  );
+  if (booksWithoutLanguage.modifiedCount) {
+    console.log(`Set English as the language for ${booksWithoutLanguage.modifiedCount} existing books without a language.`);
+  }
+
+  const copyCountMigration = await Book.updateMany(
+    { $or: [{ totalCopies: { $exists: false } }, { totalCopies: null }] },
+    { $set: { totalCopies: 1 } }
+  );
+  if (copyCountMigration.modifiedCount) {
+    console.log(`Set the default copy count for ${copyCountMigration.modifiedCount} existing books.`);
+  }
+
+  const booksWithoutUsage = await Book.find({
+    $or: [{ copiesInUse: { $exists: false } }, { copiesInUse: null }]
+  }).select("_id").lean();
+  if (booksWithoutUsage.length) {
+    const usageCounts = await Loan.aggregate([
+      {
+        $match: {
+          book: { $in: booksWithoutUsage.map((book) => book._id) },
+          status: { $in: activeLoanStatuses }
+        }
+      },
+      { $group: { _id: "$book", count: { $sum: 1 } } }
+    ]);
+    const usageByBook = new Map(usageCounts.map(({ _id, count }) => [String(_id), count]));
+    await Book.bulkWrite(booksWithoutUsage.map((book) => ({
+      updateOne: {
+        filter: { _id: book._id, $or: [{ copiesInUse: { $exists: false } }, { copiesInUse: null }] },
+        update: { $set: { copiesInUse: usageByBook.get(String(book._id)) || 0 } }
+      }
+    })));
+    console.log(`Calculated currently booked copies for ${booksWithoutUsage.length} existing books.`);
   }
 
   if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {

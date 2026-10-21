@@ -78,6 +78,7 @@ h1 em, h2 em { color: var(--gold); font-weight: 500; }
 .catalog-category-filter { display: grid; gap: 5px; color: var(--muted); font-size: 9px; }
 .catalog-category-filter select { min-width: 150px; height: 43px; border: 1px solid #e2e0d8; padding: 0 11px; background: white; color: var(--green); font: 11px var(--sans); }
 .catalog-count { font-size: 10px; color: var(--muted); }
+.catalog-suggest-button { flex: 0 0 auto; }
 .book-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 32px 21px; min-height: 200px; }
 .book-card { min-width: 0; }
 .book-cover-wrap { position: relative; height: 240px; display: grid; place-items: center; background: #e6e1d5; overflow: hidden; }
@@ -91,7 +92,10 @@ h1 em, h2 em { color: var(--gold); font-weight: 500; }
 .book-info h3 { font: 600 14px/1.4 var(--serif); margin: 0 0 4px; }
 .book-info p { font-size: 10px; color: var(--muted); margin: 0; }
 .book-category { display: inline-block; margin: 9px 6px 0 0; border: 1px solid #d9d5c9; border-radius: 20px; padding: 4px 8px; color: var(--green); font-size: 8px; }
+.book-language { display: inline-block; margin: 9px 6px 0 0; border: 1px solid #d9d5c9; border-radius: 20px; padding: 4px 8px; color: #80643d; font-size: 8px; }
 .book-year { display: inline-block; margin-top: 10px; color: #9b815c; font-size: 9px; }
+.book-copies { display: block; margin-top: 9px; color: var(--muted); font-size: 9px; }
+.book-unavailable { display: block; margin-top: 12px; color: #9a3939; font-size: 9px; font-weight: 700; }
 .book-request { display: block; margin-top: 12px; border: 0; border-bottom: 1px solid #b9b5a8; padding: 0 0 4px; background: none; color: var(--green); font-size: 9px; font-weight: 600; }
 .book-request:hover { color: #9b7547; }
 .book-delete { display: block; margin-top: 8px; border: 1px solid #8f3d3d; background: transparent; color: #8f3d3d; padding: 7px 10px; font-size: 9px; font-weight: 600; cursor: pointer; }
@@ -149,6 +153,8 @@ h1 em, h2 em { color: var(--gold); font-weight: 500; }
 .issue-status { display: inline-flex; align-items: center; padding: 5px 8px; border-radius: 20px; background: #f1efe8; color: #80643d; font-size: 8px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; white-space: nowrap; }
 .issue-status-reviewing { background: #e9f0ed; color: #315c4f; }
 .issue-status-resolved { background: #e9efe2; color: #4f6d3d; }
+.issue-status-approved, .issue-status-added { background: #e9efe2; color: #4f6d3d; }
+.issue-status-declined { background: #f5e9e6; color: #8f3d3d; }
 .public-issue-card h3 { margin: 12px 0 4px; color: var(--green); font: 600 16px/1.4 var(--serif); overflow-wrap: anywhere; }
 .public-issue-date { margin: 0 0 10px; color: var(--muted); font-size: 9px; }
 .public-issue-description { margin: 0; color: #535b54; font-size: 11px; line-height: 1.8; overflow-wrap: anywhere; white-space: pre-wrap; }
@@ -270,6 +276,7 @@ h1 em, h2 em { color: var(--gold); font-weight: 500; }
   .catalog-tools { align-items: start; flex-direction: column; gap: 12px; margin: 24px 0; width: 100%; }
   .search-box { width: 100%; }
   .catalog-category-filter, .catalog-category-filter select { width: 100%; }
+  .catalog-suggest-button { align-self: start; }
   .book-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 25px 14px; }
   .book-cover-wrap { height: clamp(180px, 58vw, 265px); }
   .book-info h3 { font-size: 13px; }
