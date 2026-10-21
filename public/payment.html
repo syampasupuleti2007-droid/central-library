@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#173d35">
+    <meta name="description" content="Review the demo ₹45 delivery payment for your Central Public Library book request.">
+    <title>Demo payment — Central Public Library</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./fulfillment.css">
+    <script src="./payment.js" defer></script>
+  </head>
+  <body class="fulfillment-page payment-page">
+    <header class="site-header">
+      <a class="brand" href="/#home" aria-label="Central Public Library home">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <span class="brand-name">Central <span>Public Library</span></span>
+      </a>
+      <nav class="main-nav" aria-label="Main navigation"><a href="/#catalog">Explore books</a><a href="/#visit">Visit</a></nav>
+      <a class="text-button" id="payment-back" href="/#catalog">← Back to delivery details</a>
+    </header>
+    <main>
+      <section class="fulfillment-banner">
+        <p class="eyebrow eyebrow-light"><span></span> DELIVERY CHECKOUT</p>
+        <h1>Review your<br><em>payment.</em></h1>
+        <p>This is a demonstration checkout only. No payment provider is connected and no real money will be collected.</p>
+      </section>
+      <section class="fulfillment-main">
+        <div class="fulfillment-book-card" id="payment-book" aria-live="polite"><div class="fulfillment-loading">Loading your selected book...</div></div>
+        <section class="fulfillment-panel payment-panel" id="payment-panel" aria-labelledby="payment-heading">
+          <div class="fulfillment-panel-heading"><span class="fulfillment-choice-icon" aria-hidden="true">₹</span><div><p class="eyebrow">DEMO PAYMENT</p><h2 id="payment-heading">Delivery charge</h2></div></div>
+          <div class="payment-warning"><strong>No real payment will be made</strong><span>Clicking the button records a simulated payment status for this library project. No card or bank details are requested.</span></div>
+          <dl class="payment-summary">
+            <div><dt>Home delivery</dt><dd>₹45</dd></div>
+            <div class="payment-total"><dt>Total due (demo)</dt><dd>₹45</dd></div>
+          </dl>
+          <div class="payment-address" id="payment-address"></div>
+          <p class="fulfillment-message hidden" id="payment-message" role="status"></p>
+          <button class="button fulfillment-submit" id="payment-submit" type="button" disabled>Simulate ₹45 payment &amp; place request</button>
+          <a class="payment-cancel-link" id="payment-cancel" href="#">Return to delivery details</a>
+        </section>
+        <section class="fulfillment-success hidden" id="payment-success" role="status">
+          <span class="success-mark" aria-hidden="true">✓</span>
+          <p class="eyebrow">DEMO PAYMENT COMPLETE</p>
+          <h2>Delivery request<br><em>received.</em></h2>
+          <p>₹45 was recorded as a simulation only. No money was charged. You can follow the request status from your profile.</p>
+          <article class="payment-receipt" id="payment-receipt" aria-label="Demo delivery receipt"></article>
+          <div class="receipt-actions">
+            <button class="button button-cream" id="print-receipt" type="button">Print receipt</button>
+            <a class="button" href="/profile.html">View my profile <span aria-hidden="true">→</span></a>
+          </div>
+        </section>
+      </section>
+    </main>
+    <footer class="site-footer"><div class="footer-bottom"><span>© <span class="current-year"></span> Central Public Library</span><span>DEMO PAYMENT ONLY</span><a href="/#home">HOME ↑</a></div></footer>
+  </body>
+</html>

@@ -75,8 +75,26 @@
         <div class="catalog-tools">
           <label class="search-box">
             <span aria-hidden="true">⌕</span>
-            <input type="search" id="book-search" placeholder="Search by title or author..." aria-label="Search books by title or author">
+            <input type="search" id="book-search" placeholder="Search by title, author, or category..." aria-label="Search books by title, author, or category">
             <kbd>↵</kbd>
+          </label>
+          <label class="catalog-category-filter">Category
+            <select id="book-category" aria-label="Filter books by category">
+              <option value="All">All categories</option>
+              <option>Adventure</option>
+              <option>Biography</option>
+              <option>Children</option>
+              <option>Classics</option>
+              <option>Fantasy</option>
+              <option>History</option>
+              <option>Horror</option>
+              <option>Mystery</option>
+              <option>Nonfiction</option>
+              <option>Philosophy</option>
+              <option>Romance</option>
+              <option>Science Fiction</option>
+              <option>Other</option>
+            </select>
           </label>
           <span class="catalog-count" id="catalog-count">Discover something wonderful</span>
         </div>

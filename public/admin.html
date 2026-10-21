@@ -88,12 +88,26 @@
             <form class="admin-settings-form" id="admin-add-book-form">
               <label>Title<input name="title" required maxlength="300"></label>
               <label>Author<input name="author" maxlength="200" placeholder="Unknown author"></label>
+              <label>Category<select name="category" required>
+                <option value="">Choose a category</option>
+                <option>Adventure</option><option>Biography</option><option>Children</option><option>Classics</option>
+                <option>Fantasy</option><option>History</option><option>Horror</option><option>Mystery</option>
+                <option>Nonfiction</option><option>Philosophy</option><option>Romance</option><option>Science Fiction</option><option>Other</option>
+              </select></label>
               <label>Publication year<input name="year" type="number" min="1" max="2100"></label>
               <label>Cover image URL<input name="coverUrl" type="url" maxlength="2048" placeholder="https://example.com/cover.jpg"></label>
               <div class="admin-form-actions"><p class="admin-message" id="book-message" role="status"></p><button class="button" type="submit">Add to collection <span aria-hidden="true">→</span></button></div>
             </form>
             <div class="admin-book-toolbar">
               <h3>Catalog books</h3>
+              <label class="admin-book-category-filter">Category
+                <select data-admin-category-filter="books">
+                  <option value="All">All categories</option>
+                  <option>Adventure</option><option>Biography</option><option>Children</option><option>Classics</option>
+                  <option>Fantasy</option><option>History</option><option>Horror</option><option>Mystery</option>
+                  <option>Nonfiction</option><option>Philosophy</option><option>Romance</option><option>Science Fiction</option><option>Other</option>
+                </select>
+              </label>
               <div class="admin-book-search"><label>Search <input type="search" placeholder="Search books" data-admin-search="books"></label></div>
             </div>
             <div class="admin-delivery-list" id="admin-book-manager"><p class="admin-empty">Loading catalog books...</p></div>

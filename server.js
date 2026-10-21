@@ -9,10 +9,12 @@ const helmet = require("helmet");
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const starterCatalog = require("./scripts/starter-catalog");
+const { categories: bookCategories, inferCategory } = require("./scripts/book-categories");
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
 const tokenCookie = "library_session";
+const DELIVERY_FEE_RUPEES = 45;
 
 if (!process.env.MONGODB_URI || !process.env.JWT_SECRET) {
   console.error("MONGODB_URI and JWT_SECRET must be configured in .env.");
@@ -41,6 +43,8 @@ const bookSchema = new mongoose.Schema(
     workKey: { type: String, unique: true, sparse: true },
     title: { type: String, required: true, trim: true, maxlength: 300 },
     author: { type: String, default: "Unknown author", trim: true },
+    category: { type: String, enum: bookCategories, default: "Other" },
+    categoryManuallySet: { type: Boolean, default: false, select: false },
     year: Number,
     subjects: [String],
     isbn: String,
@@ -60,6 +64,8 @@ const loanSchema = new mongoose.Schema(
     book: { type: mongoose.Schema.Types.ObjectId, ref: "Book", required: true },
     status: { type: String, enum: ["requested", "approved", "returned", "declined"], default: "requested" },
     fulfillmentMethod: { type: String, enum: ["pickup", "delivery"], default: "pickup" },
+    deliveryFeeRupees: { type: Number, min: 0, default: 0 },
+    paymentStatus: { type: String, enum: ["not_required", "demo_only"], default: "not_required" },
     deliveryAddress: {
       recipient: { type: String, trim: true, maxlength: 100 },
       phone: { type: String, trim: true, maxlength: 30 },
@@ -397,9 +403,20 @@ app.get("/api/books", async (req, res, next) => {
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const limit = Math.min(24, Math.max(1, Number.parseInt(req.query.limit, 10) || 12));
     const search = typeof req.query.search === "string" ? req.query.search.trim().slice(0, 100) : "";
-    const filter = search
-      ? { $or: [{ title: { $regex: escapeRegex(search), $options: "i" } }, { author: { $regex: escapeRegex(search), $options: "i" } }] }
-      : {};
+    const category = typeof req.query.category === "string" ? req.query.category.trim() : "";
+    if (category && category !== "All" && !bookCategories.includes(category)) {
+      return res.status(400).json({ error: "Choose a valid book category." });
+    }
+    const filter = {};
+    if (category && category !== "All") filter.category = category;
+    if (search) {
+      filter.$or = [
+        { title: { $regex: escapeRegex(search), $options: "i" } },
+        { author: { $regex: escapeRegex(search), $options: "i" } },
+        { category: { $regex: escapeRegex(search), $options: "i" } },
+        { subjects: { $regex: escapeRegex(search), $options: "i" } }
+      ];
+    }
     const [books, total] = await Promise.all([
       Book.find(filter).sort({ title: 1 }).skip((page - 1) * limit).limit(limit).lean(),
       Book.countDocuments(filter)
@@ -463,6 +480,8 @@ app.post("/api/loans", requireAuth, async (req, res, next) => {
       book: bookId,
       fulfillmentMethod,
       deliveryAddress: validatedAddress,
+      deliveryFeeRupees: fulfillmentMethod === "delivery" ? DELIVERY_FEE_RUPEES : 0,
+      paymentStatus: fulfillmentMethod === "delivery" ? "demo_only" : "not_required",
       trackingStatus: fulfillmentMethod === "delivery" ? "confirmed" : undefined
     });
     res.status(201).json({ loan });
@@ -488,7 +507,7 @@ app.get("/api/admin/overview", requireAuth, requireAdmin, async (_req, res, next
       Loan.countDocuments({ status: { $in: ["requested", "approved"] } }),
       Loan.find({ status: { $in: ["requested", "approved"] } })
         .populate("member", "name email")
-        .populate("book", "title author")
+        .populate("book", "title author category")
         .sort({ createdAt: -1 })
         .limit(50)
         .lean()
@@ -543,9 +562,19 @@ app.get("/api/admin/books", requireAuth, requireAdmin, async (req, res, next) =>
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
     const search = typeof req.query.search === "string" ? req.query.search.trim().slice(0, 100) : "";
-    const filter = search
-      ? { $or: [{ title: { $regex: escapeRegex(search), $options: "i" } }, { author: { $regex: escapeRegex(search), $options: "i" } }] }
-      : {};
+    const category = typeof req.query.category === "string" ? req.query.category.trim() : "";
+    if (category && category !== "All" && !bookCategories.includes(category)) {
+      return res.status(400).json({ error: "Choose a valid book category." });
+    }
+    const filter = {};
+    if (category && category !== "All") filter.category = category;
+    if (search) {
+      filter.$or = [
+        { title: { $regex: escapeRegex(search), $options: "i" } },
+        { author: { $regex: escapeRegex(search), $options: "i" } },
+        { category: { $regex: escapeRegex(search), $options: "i" } }
+      ];
+    }
     const [books, total] = await Promise.all([
       Book.find(filter).sort({ title: 1 }).skip((page - 1) * limit).limit(limit).lean(),
       Book.countDocuments(filter)
@@ -559,12 +588,15 @@ app.get("/api/admin/books", requireAuth, requireAdmin, async (req, res, next) =>
 app.put("/api/admin/books/:id", requireAuth, requireAdmin, async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Choose a valid book." });
-    const { title, author, year, coverUrl } = req.body || {};
+    const { title, author, year, coverUrl, category } = req.body || {};
     if (typeof title !== "string" || !title.trim() || title.trim().length > 300) {
       return res.status(400).json({ error: "A book title of up to 300 characters is required." });
     }
     if (author !== undefined && (typeof author !== "string" || author.trim().length > 200)) {
       return res.status(400).json({ error: "Author must be 200 characters or fewer." });
+    }
+    if (!bookCategories.includes(category)) {
+      return res.status(400).json({ error: "Choose a valid book category." });
     }
     let validatedCoverUrl = "";
     if (coverUrl) {
@@ -586,6 +618,8 @@ app.put("/api/admin/books/:id", requireAuth, requireAdmin, async (req, res, next
     const bookChanges = {
       title: title.trim(),
       author: author?.trim() || "Unknown author",
+      category,
+      categoryManuallySet: true,
       coverUrl: validatedCoverUrl
     };
     if (parsedYear !== undefined) bookChanges.year = parsedYear;
@@ -641,7 +675,7 @@ app.get("/api/admin/pickups", requireAuth, requireAdmin, async (_req, res, next)
   try {
     const pickups = await Loan.find({ fulfillmentMethod: "pickup" })
       .populate("member", "name email")
-      .populate("book", "title author")
+      .populate("book", "title author category")
       .sort({ createdAt: -1 })
       .limit(100)
       .lean();
@@ -655,7 +689,7 @@ app.get("/api/admin/deliveries", requireAuth, requireAdmin, async (_req, res, ne
   try {
     const loans = await Loan.find({ fulfillmentMethod: "delivery" })
       .populate("member", "name email")
-      .populate("book", "title author")
+      .populate("book", "title author category")
       .sort({ createdAt: -1 })
       .limit(100)
       .lean();
@@ -691,7 +725,7 @@ app.get("/api/admin/members", requireAuth, requireAdmin, async (req, res, next) 
     ]);
     const loans = members.length
       ? await Loan.find({ member: { $in: members.map((member) => member._id) } })
-          .populate("book", "title author")
+          .populate("book", "title author category")
           .sort({ createdAt: -1 })
           .lean()
       : [];
@@ -716,9 +750,12 @@ app.get("/api/admin/members", requireAuth, requireAdmin, async (req, res, next) 
 
 app.post("/api/admin/books", requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const { title, author, year, coverUrl } = req.body || {};
+    const { title, author, year, coverUrl, category } = req.body || {};
     if (typeof title !== "string" || !title.trim() || title.trim().length > 300) {
       return res.status(400).json({ error: "A book title of up to 300 characters is required." });
+    }
+    if (!bookCategories.includes(category)) {
+      return res.status(400).json({ error: "Choose a valid book category." });
     }
     let validatedCoverUrl;
     if (coverUrl) {
@@ -736,6 +773,8 @@ app.post("/api/admin/books", requireAuth, requireAdmin, async (req, res, next) =
     const book = await Book.create({
       title: title.trim(),
       author: typeof author === "string" && author.trim() ? author.trim().slice(0, 200) : "Unknown author",
+      category,
+      categoryManuallySet: true,
       year: Number.isInteger(Number(year)) && Number(year) > 0 ? Number(year) : undefined,
       coverUrl: validatedCoverUrl
     });
@@ -823,11 +862,25 @@ async function start() {
   if (await Book.countDocuments() === 0) {
     const starterBooks = starterCatalog.map((book) => ({
       ...book,
+      category: book.category || inferCategory(book.subjects),
       workKey: `starter:${book.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
       source: "starter"
     }));
     await Book.insertMany(starterBooks, { ordered: false });
     console.log(`Added ${starterBooks.length} starter books to the searchable catalog.`);
+  }
+
+  const uncategorizedBooks = await Book.find({
+    $or: [{ category: { $exists: false } }, { category: null }, { category: "" }]
+  }).select("_id subjects").lean();
+  if (uncategorizedBooks.length) {
+    await Book.bulkWrite(uncategorizedBooks.map((book) => ({
+      updateOne: {
+        filter: { _id: book._id },
+        update: { $set: { category: inferCategory(book.subjects) } }
+      }
+    })));
+    console.log(`Assigned categories to ${uncategorizedBooks.length} existing books using their catalog subjects.`);
   }
 
   if (process.env.ADMIN_EMAIL && process.env.ADMIN_PASSWORD) {

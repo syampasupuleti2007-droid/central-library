@@ -1,4 +1,4 @@
-const state = { user: null, page: 1, search: "", authMode: "login", debounce: null, selectedBook: null };
+const state = { user: null, page: 1, search: "", category: "All", authMode: "login", debounce: null, selectedBook: null };
 const $ = (selector) => document.querySelector(selector);
 const bookGrid = $("#book-grid");
 const pagination = $("#catalog-pagination");
@@ -63,6 +63,7 @@ async function loadBooks() {
   try {
     const params = new URLSearchParams({ page: state.page, limit: "12" });
     if (state.search) params.set("search", state.search);
+    if (state.category !== "All") params.set("category", state.category);
     const data = await api(`/api/books?${params}`);
     $("#catalog-count").textContent = data.total ? `${data.total.toLocaleString()} books to discover` : "No books found";
     if (!data.books.length) {
@@ -81,6 +82,7 @@ async function loadBooks() {
         <div class="book-cover-wrap">${cover}</div>
         <div class="book-info"><h3>${title}</h3>
         <p>by ${escapeHtml(book.author || "Unknown author")}</p>
+        <span class="book-category">${escapeHtml(book.category || "Other")}</span>
         ${book.year ? `<span class="book-year">${escapeHtml(book.year)}</span>` : ""}
         ${state.user ? `<button class="book-request" data-request-book="${escapeHtml(book._id)}">Request this book →</button>` : ""}
         ${isAdmin ? `<button class="book-delete" type="button" data-delete-book="${escapeHtml(book._id)}">Remove book</button>` : ""}
@@ -187,7 +189,7 @@ function renderLoan(loan, admin = false) {
   const tracking = isDelivery ? renderTracking(loan.trackingStatus) : "";
   return `<div class="loan-row">
     <div><h4>${escapeHtml(book.title || "Book")}</h4>
-      <p>${admin ? `${escapeHtml(member.name || "Member")} · ${escapeHtml(member.email || "")} · ` : ""}${escapeHtml(book.author || "")}</p>
+      <p>${admin ? `${escapeHtml(member.name || "Member")} · ${escapeHtml(member.email || "")} · ` : ""}${escapeHtml(book.author || "")} · ${escapeHtml(book.category || "Other")}</p>
       <p>${isDelivery ? "Home delivery" : "Library pickup"}${admin && isDelivery ? ` · ${escapeHtml(address.recipient || "")} · ${escapeHtml(address.line1 || "")}, ${escapeHtml(address.city || "")}, ${escapeHtml(address.region || "")} ${escapeHtml(address.postalCode || "")} · ${escapeHtml(address.phone || "")}` : ""}</p>
       ${loan.dueAt ? `<p>Due ${new Date(loan.dueAt).toLocaleDateString()}</p>` : ""}
     </div>
@@ -270,6 +272,12 @@ $("#book-search").addEventListener("input", (event) => {
     state.page = 1;
     loadBooks();
   }, 250);
+});
+
+$("#book-category").addEventListener("change", (event) => {
+  state.category = event.target.value;
+  state.page = 1;
+  loadBooks();
 });
 
 pagination.addEventListener("click", (event) => {

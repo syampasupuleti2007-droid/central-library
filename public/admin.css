@@ -14,7 +14,7 @@
 .admin-login-card > p:not(.eyebrow) { color: var(--muted); font-size: 10px; line-height: 1.8; }
 .admin-login-card form { display: grid; gap: 14px; margin-top: 19px; }
 .admin-login-card label, .admin-settings-form label, .admin-add-book label, .admin-book-row label { display: grid; gap: 6px; color: #555c54; font-size: 9px; }
-.admin-login-card input, .admin-settings-form input, .admin-add-book input, .admin-book-row input { width: 100%; min-width: 0; height: 38px; border: 1px solid #dcd9cf; padding: 0 10px; background: white; color: var(--ink); font: 11px var(--sans); outline-color: #789186; }
+.admin-login-card input, .admin-settings-form input, .admin-settings-form select, .admin-add-book input, .admin-book-row input { width: 100%; min-width: 0; height: 38px; border: 1px solid #dcd9cf; padding: 0 10px; background: white; color: var(--ink); font: 11px var(--sans); outline-color: #789186; }
 .admin-login-card form .button { width: 100%; }
 .admin-back-link { display: inline-block; margin-top: 19px; color: var(--muted); font-size: 9px; }
 .admin-message { min-height: 14px; margin: 0; color: #327052; font-size: 9px; line-height: 1.6; }
@@ -50,6 +50,8 @@
 .admin-add-book > .admin-message { grid-column: 1 / -1; }
 .admin-book-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin: 25px 0 12px; }
 .admin-book-toolbar h3 { margin: 0; color: var(--green); font: 600 16px var(--serif); }
+.admin-book-category-filter { display: grid; gap: 5px; color: var(--muted); font-size: 9px; }
+.admin-book-category-filter select { min-width: 150px; height: 34px; border: 1px solid #dcd9cf; padding: 0 8px; background: white; color: var(--green); font: 10px var(--sans); }
 .admin-book-search { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 9px; }
 .admin-book-search input { width: min(220px, 45vw); height: 34px; }
 .admin-search-field { margin-bottom: 14px; }
@@ -143,6 +145,7 @@
   .admin-add-book { grid-template-columns: 1fr; }
   .admin-add-book > .button, .admin-add-book > .admin-message { grid-column: auto; }
   .admin-book-toolbar { align-items: start; flex-direction: column; }
+  .admin-book-category-filter, .admin-book-category-filter select { width: 100%; }
   .admin-book-search { width: 100%; justify-content: space-between; }
   .admin-book-search input { width: 75%; }
   .admin-book-row { grid-template-columns: 40px 1fr 1fr; gap: 9px; }

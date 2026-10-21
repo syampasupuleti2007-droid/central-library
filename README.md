@@ -1,6 +1,6 @@
 # Central Public Library
 
-A responsive library website with a vanilla HTML/CSS/JavaScript frontend and an Express/MongoDB API. Members can create accounts, browse and request books, and review their requests. Administrators can manage requests and add books.
+A responsive library website with a vanilla HTML/CSS/JavaScript frontend and an Express/MongoDB API. Members can create accounts, browse books by category, request titles, and review their requests. Administrators can manage requests, categorize books, and add books.
 
 ## Requirements
 
@@ -14,7 +14,7 @@ A responsive library website with a vanilla HTML/CSS/JavaScript frontend and an 
 3. Set `MONGODB_URI` to your MongoDB connection string and choose a random `JWT_SECRET` with at least 32 characters.
 4. Set `ADMIN_EMAIL` and a unique `ADMIN_PASSWORD` of at least 12 characters for the first administrator account. Do not use a sample password in production.
 5. To enable complaint SMS updates, set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_FROM_NUMBER` to your Twilio account credentials and sender number. Users must provide a mobile number in international format and consent when submitting a report.
-6. On the first server start, an empty catalog is automatically filled with 31 starter books so catalog search works immediately. Optionally run `npm run seed:books` to import up to 6,000 English-language works from Open Library. The import uses smaller pages, retries temporary API failures, and is repeatable; rerunning it updates matching work records.
+6. On the first server start, an empty catalog is automatically filled with 31 starter books so catalog search works immediately. Optionally run `npm run seed:books` to import up to 6,000 English-language works from Open Library. The import uses smaller pages, retries temporary API failures, and is repeatable; rerunning it updates matching work records and refreshes inferred categories without overwriting categories assigned by staff.
 7. Run `npm run dev` and open `http://localhost:3000`. Do not open files in `public/` directly: account creation, login, catalog, profile, and loan records need the API server.
 
 For local development, use `npm run dev`. When serving over HTTPS, set `COOKIE_SECURE=true`.
@@ -26,7 +26,7 @@ The catalog import uses the public Open Library Search API. It does not require 
 ## API
 
 - `GET /api/health` — health check
-- `GET /api/books?page=1&limit=12&search=...` — paginated catalog search
+- `GET /api/books?page=1&limit=12&search=...&category=...` — paginated catalog search and category filtering
 - `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
 - `POST /api/loans`, `GET /api/loans/mine` — member book requests
 - `GET /api/admin/overview`, `POST /api/admin/books`, `PATCH /api/admin/loans/:id`, `PATCH /api/admin/loans/:id/tracking` — administrator tools
@@ -38,9 +38,11 @@ The catalog import uses the public Open Library Search API. It does not require 
 
 Authentication uses an HTTP-only, same-site cookie; passwords are hashed with bcrypt. The separate `/profile.html` page shows the signed-in account name, login email, account role, member-since date, last sign-in time, and book history. Passwords and password hashes are never returned to the frontend. Secrets belong in the untracked `.env` file and must never be placed in frontend files.
 
-Book requests use separate `fulfillment.html`, `pickup.html`, and `delivery.html` pages. Select **Request this book** in the catalog, then choose pickup or delivery. Pickup uses the sample address shown in the Visit section. Delivery requests save the member's address and phone number and display a mock tracker; no courier, delivery booking, or live tracking integration is connected. Administrators can update the demo tracker from the admin dashboard.
+Book requests use separate `fulfillment.html`, `pickup.html`, `delivery.html`, and `payment.html` pages. Select **Request this book** in the catalog, then choose pickup or delivery. Pickup uses the sample address shown in the Visit section. Home delivery records a fixed ₹45 delivery fee and demo-only payment status. After demo checkout, members can view and print a receipt identified by their loan request. The payment page simulates checkout and does not charge money; no payment gateway or courier is connected.
 
-Staff can open `/admin.html` to sign in with the configured administrator account, view and search member details and loan history, manage books and library settings, review pickup and delivery requests, and update demo tracking statuses. The admin APIs enforce the administrator role on the server.
+Staff can open `/admin.html` to sign in with the configured administrator account, view and search member details and loan history, manage books and library settings, categorize books, review pickup and delivery requests, and update demo tracking statuses. The admin APIs enforce the administrator role on the server.
+
+Books use these categories: Adventure, Biography, Children, Classics, Fantasy, History, Horror, Mystery, Nonfiction, Philosophy, Romance, Science Fiction, and Other. Imported and existing catalog entries are categorized from their available subject metadata; administrators can edit each book to correct or refine its category.
 
 The community issue board is available only after a member signs in, and members see only their own reports. Reports are visible only to the submitting member and administrators; do not submit personal or sensitive information. Administrators can see each report's submitting member and change its status to Submitted, Under review, or Resolved in the admin console.
 

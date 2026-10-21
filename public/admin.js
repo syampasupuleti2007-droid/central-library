@@ -1,8 +1,13 @@
 const $ = (selector) => document.querySelector(selector);
+const bookCategories = [
+  "Adventure", "Biography", "Children", "Classics", "Fantasy", "History",
+  "Horror", "Mystery", "Nonfiction", "Philosophy", "Romance", "Science Fiction", "Other"
+];
 const adminState = {
   user: null,
   activeTab: "overview",
   search: { books: "", members: "", pickups: "", deliveries: "", issues: "" },
+  bookCategory: "All",
   memberPage: 1,
   memberSearchTimer: null
 };
@@ -59,6 +64,10 @@ function filterMatches(term, values) {
   return values.some((value) => String(value || "").toLowerCase().includes(query));
 }
 
+function categoryOptions(selected) {
+  return bookCategories.map((category) => `<option value="${escapeHtml(category)}"${category === selected ? " selected" : ""}>${escapeHtml(category)}</option>`).join("");
+}
+
 function renderAdmin(user) {
   adminState.user = user;
   $("#admin-login-card").classList.add("hidden");
@@ -82,6 +91,7 @@ async function loadBooksForAdmin(searchText = adminState.search.books) {
     const searchParam = searchText.trim();
     const query = new URLSearchParams({ page: "1", limit: "10" });
     if (searchParam) query.set("search", searchParam);
+    if (adminState.bookCategory !== "All") query.set("category", adminState.bookCategory);
     const { books } = await api(`/api/admin/books?${query.toString()}`);
     list.innerHTML = books.length
       ? books.map((book) => `
@@ -96,10 +106,11 @@ async function loadBooksForAdmin(searchText = adminState.search.books) {
               <button class="button button-small" type="button" data-admin-delete-book="${escapeHtml(book._id)}">Remove</button>
             </div>
           </div>
-          <p class="admin-issue-reporter">by ${escapeHtml(book.author || "Unknown author")}</p>
+          <p class="admin-issue-reporter">by ${escapeHtml(book.author || "Unknown author")} · ${escapeHtml(book.category || "Other")}</p>
           <form class="admin-settings-form admin-book-edit-form hidden" data-admin-book-form="${escapeHtml(book._id)}">
             <label>Title<input name="title" value="${escapeHtml(book.title || "")}" required maxlength="300"></label>
             <label>Author<input name="author" value="${escapeHtml(book.author || "")}" maxlength="200"></label>
+            <label>Category<select name="category" required>${categoryOptions(book.category || "Other")}</select></label>
             <label>Publication year<input name="year" type="number" min="1" max="2100" value="${escapeHtml(book.year || "")}"></label>
             <label>Cover image URL<input name="coverUrl" type="url" maxlength="2048" value="${escapeHtml(book.coverUrl || "")}" placeholder="https://example.com/cover.jpg"></label>
             <div class="admin-form-actions">
@@ -134,7 +145,7 @@ function renderMember(member) {
     ? `<div class="admin-member-loans">${loans.map((loan) => `
       <div class="admin-member-loan">
         <strong>${escapeHtml(loan.book?.title || "Book details unavailable")}</strong>
-        <span>${escapeHtml(loan.status)} · ${loan.fulfillmentMethod === "delivery" ? "Home delivery" : "Library pickup"} · Requested ${escapeHtml(new Date(loan.createdAt).toLocaleDateString())}</span>
+        <span>${escapeHtml(loan.book?.category || "Other")} · ${escapeHtml(loan.status)} · ${loan.fulfillmentMethod === "delivery" ? "Home delivery" : "Library pickup"} · Requested ${escapeHtml(new Date(loan.createdAt).toLocaleDateString())}</span>
         ${loan.dueAt ? `<small>Due ${escapeHtml(new Date(loan.dueAt).toLocaleDateString())}</small>` : ""}
       </div>`).join("")}</div>`
     : '<p class="admin-empty admin-member-no-loans">No book requests or borrowing history yet.</p>';
@@ -207,8 +218,8 @@ function renderDelivery(loan) {
   const addressText = [address.line1, address.line2, [address.city, address.region, address.postalCode, address.country].filter(Boolean).join(", ")].filter(Boolean).join(", ");
   const canUpdate = !["declined", "returned"].includes(loan.status);
   return `<article class="admin-delivery-card" data-delivery-card="${escapeHtml(loan._id)}">
-    <div class="admin-delivery-main"><div><p class="eyebrow">DELIVERY REQUEST · ${escapeHtml(new Date(loan.createdAt).toLocaleDateString())}</p><h3>${escapeHtml(book.title || "Book")}</h3><p>by ${escapeHtml(book.author || "Unknown author")}</p></div><span class="admin-loan-status status-${escapeHtml(loan.status)}">${escapeHtml(loan.status)}</span></div>
-    <div class="admin-delivery-details"><div><span>Member</span><strong>${escapeHtml(member.name || "Unknown")} · ${escapeHtml(member.email || "")}</strong></div><div><span>Recipient</span><strong>${escapeHtml(address.recipient || "")} · ${escapeHtml(address.phone || "")}</strong></div><div><span>Delivery address</span><strong>${escapeHtml(addressText)}</strong></div>${address.instructions ? `<div><span>Instructions</span><strong>${escapeHtml(address.instructions)}</strong></div>` : ""}</div>
+    <div class="admin-delivery-main"><div><p class="eyebrow">DELIVERY REQUEST · ${escapeHtml(new Date(loan.createdAt).toLocaleDateString())}</p><h3>${escapeHtml(book.title || "Book")}</h3><p>by ${escapeHtml(book.author || "Unknown author")} · ${escapeHtml(book.category || "Other")}</p></div><span class="admin-loan-status status-${escapeHtml(loan.status)}">${escapeHtml(loan.status)}</span></div>
+    <div class="admin-delivery-details"><div><span>Member</span><strong>${escapeHtml(member.name || "Unknown")} · ${escapeHtml(member.email || "")}</strong></div><div><span>Recipient</span><strong>${escapeHtml(address.recipient || "")} · ${escapeHtml(address.phone || "")}</strong></div><div><span>Delivery address</span><strong>${escapeHtml(addressText)}</strong></div><div><span>Delivery fee</span><strong>${loan.deliveryFeeRupees === undefined ? "Not recorded" : `₹${Number(loan.deliveryFeeRupees).toLocaleString("en-IN")} · demo only, not charged`}</strong></div><div><span>Payment status</span><strong>${loan.paymentStatus === "demo_only" ? "Demo simulation only (no money charged)" : loan.paymentStatus === "not_required" ? "Not required" : "Not recorded"}</strong></div>${address.instructions ? `<div><span>Instructions</span><strong>${escapeHtml(address.instructions)}</strong></div>` : ""}</div>
     ${loan.status === "requested" ? `<div class="admin-delivery-actions"><button type="button" data-delivery-status="approved" data-loan-id="${escapeHtml(loan._id)}">Approve request</button><button type="button" data-delivery-status="declined" data-loan-id="${escapeHtml(loan._id)}">Decline request</button></div>` : ""}
     <div class="admin-delivery-tracking"><div class="delivery-tracker-heading"><strong>Demo delivery tracker</strong><span>NO COURIER CONNECTED</span></div><div class="delivery-tracker-steps">${[
       ["confirmed", "Request confirmed"],
@@ -228,7 +239,7 @@ function renderPickup(loan) {
   const book = loan.book || {};
   const pickupLabel = loan.status === "requested" ? "Awaiting admin review" : loan.status === "approved" ? "Ready for pickup" : loan.status === "returned" ? "Returned" : "Declined";
   return `<article class="admin-delivery-card" data-pickup-card="${escapeHtml(loan._id)}">
-    <div class="admin-delivery-main"><div><p class="eyebrow">PICKUP REQUEST · ${escapeHtml(new Date(loan.createdAt).toLocaleDateString())}</p><h3>${escapeHtml(book.title || "Book")}</h3><p>by ${escapeHtml(book.author || "Unknown author")}</p></div><span class="admin-loan-status status-${escapeHtml(loan.status)}">${escapeHtml(loan.status)}</span></div>
+    <div class="admin-delivery-main"><div><p class="eyebrow">PICKUP REQUEST · ${escapeHtml(new Date(loan.createdAt).toLocaleDateString())}</p><h3>${escapeHtml(book.title || "Book")}</h3><p>by ${escapeHtml(book.author || "Unknown author")} · ${escapeHtml(book.category || "Other")}</p></div><span class="admin-loan-status status-${escapeHtml(loan.status)}">${escapeHtml(loan.status)}</span></div>
     <div class="admin-delivery-details"><div><span>Member</span><strong>${escapeHtml(member.name || "Unknown")} · ${escapeHtml(member.email || "")}</strong></div><div><span>Pickup status</span><strong>${escapeHtml(pickupLabel)}</strong></div><div><span>Due date</span><strong>${escapeHtml(loan.dueAt ? new Date(loan.dueAt).toLocaleDateString() : "Not set")}</strong></div></div>
     ${loan.status === "requested" ? `<div class="admin-delivery-actions"><button type="button" data-pickup-status="approved" data-loan-id="${escapeHtml(loan._id)}">Approve request</button><button type="button" data-pickup-status="declined" data-loan-id="${escapeHtml(loan._id)}">Decline request</button></div>` : ""}
     ${loan.status === "approved" ? `<div class="admin-delivery-actions"><button type="button" data-pickup-status="returned" data-loan-id="${escapeHtml(loan._id)}">Mark returned</button></div>` : ""}
@@ -340,6 +351,13 @@ document.querySelectorAll("[data-admin-search]").forEach((input) => {
     if (key === "pickups") loadPickups();
     if (key === "deliveries") loadDeliveries();
     if (key === "issues") loadIssues();
+  });
+});
+
+document.querySelectorAll("[data-admin-category-filter]").forEach((select) => {
+  select.addEventListener("change", (event) => {
+    adminState.bookCategory = event.target.value;
+    loadBooksForAdmin();
   });
 });
 

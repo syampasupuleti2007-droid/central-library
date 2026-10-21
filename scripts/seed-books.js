@@ -1,12 +1,15 @@
 require("dotenv").config();
 
 const mongoose = require("mongoose");
+const { inferCategory } = require("./book-categories");
 
 const bookSchema = new mongoose.Schema(
   {
     workKey: { type: String, unique: true, sparse: true },
     title: String,
     author: String,
+    category: String,
+    categoryManuallySet: Boolean,
     year: Number,
     subjects: [String],
     isbn: String,
@@ -29,7 +32,7 @@ function delay(milliseconds) {
 async function fetchPage(offset) {
   const url = new URL("https://openlibrary.org/search.json");
   url.searchParams.set("q", "language:eng");
-  url.searchParams.set("fields", "key,title,author_name,first_publish_year,isbn,cover_i");
+  url.searchParams.set("fields", "key,title,author_name,first_publish_year,isbn,cover_i,subject");
   url.searchParams.set("limit", String(PAGE_SIZE));
   url.searchParams.set("offset", String(offset));
 
@@ -98,13 +101,25 @@ async function run() {
               coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : undefined,
               editionCount: doc.edition_count,
               source: "openlibrary"
+            },
+            $setOnInsert: {
+              category: inferCategory(doc.subject),
+              categoryManuallySet: false
             }
           },
           upsert: true
         }
       }));
 
-    if (operations.length) await Book.bulkWrite(operations, { ordered: false });
+    if (operations.length) {
+      await Book.bulkWrite(operations, { ordered: false });
+      await Book.bulkWrite(docs.filter((doc) => doc.key && doc.title).map((doc) => ({
+        updateOne: {
+          filter: { workKey: doc.key, categoryManuallySet: { $ne: true } },
+          update: { $set: { category: inferCategory(doc.subject) } }
+        }
+      })), { ordered: false });
+    }
     imported += operations.length;
     console.log(`Processed catalog page ${Math.floor(offset / PAGE_SIZE) + 1}: ${imported} of up to 6,000 records.`);
     if (docs.length < PAGE_SIZE) {

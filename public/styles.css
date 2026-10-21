@@ -75,6 +75,8 @@ h1 em, h2 em { color: var(--gold); font-weight: 500; }
 .search-box > span { font-size: 22px; }
 .search-box input { flex: 1; min-width: 0; outline: 0; border: 0; background: transparent; font-size: 11px; color: var(--ink); }
 .search-box kbd { font-size: 9px; color: #92968e; }
+.catalog-category-filter { display: grid; gap: 5px; color: var(--muted); font-size: 9px; }
+.catalog-category-filter select { min-width: 150px; height: 43px; border: 1px solid #e2e0d8; padding: 0 11px; background: white; color: var(--green); font: 11px var(--sans); }
 .catalog-count { font-size: 10px; color: var(--muted); }
 .book-grid { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 32px 21px; min-height: 200px; }
 .book-card { min-width: 0; }
@@ -88,6 +90,7 @@ h1 em, h2 em { color: var(--gold); font-weight: 500; }
 .book-info { padding: 14px 1px 0; }
 .book-info h3 { font: 600 14px/1.4 var(--serif); margin: 0 0 4px; }
 .book-info p { font-size: 10px; color: var(--muted); margin: 0; }
+.book-category { display: inline-block; margin: 9px 6px 0 0; border: 1px solid #d9d5c9; border-radius: 20px; padding: 4px 8px; color: var(--green); font-size: 8px; }
 .book-year { display: inline-block; margin-top: 10px; color: #9b815c; font-size: 9px; }
 .book-request { display: block; margin-top: 12px; border: 0; border-bottom: 1px solid #b9b5a8; padding: 0 0 4px; background: none; color: var(--green); font-size: 9px; font-weight: 600; }
 .book-request:hover { color: #9b7547; }
@@ -266,6 +269,7 @@ h1 em, h2 em { color: var(--gold); font-weight: 500; }
   .section-aside { margin: 0; }
   .catalog-tools { align-items: start; flex-direction: column; gap: 12px; margin: 24px 0; width: 100%; }
   .search-box { width: 100%; }
+  .catalog-category-filter, .catalog-category-filter select { width: 100%; }
   .book-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 25px 14px; }
   .book-cover-wrap { height: clamp(180px, 58vw, 265px); }
   .book-info h3 { font-size: 13px; }

@@ -110,13 +110,13 @@ function renderLoan(loan) {
   return `<article class="profile-loan">
     <div class="profile-loan-book">
       <span class="profile-loan-icon" aria-hidden="true">▤</span>
-      <div><h3>${escapeHtml(book.title || "Book details unavailable")}</h3><p>by ${escapeHtml(book.author || "Unknown author")}</p></div>
+      <div><h3>${escapeHtml(book.title || "Book details unavailable")}</h3><p>by ${escapeHtml(book.author || "Unknown author")} · ${escapeHtml(book.category || "Other")}</p></div>
     </div>
     <div class="profile-loan-meta"><span>Requested</span><strong>${escapeHtml(formatDate(loan.createdAt))}</strong></div>
     <div class="profile-loan-meta"><span>Fulfillment</span><strong>${isDelivery ? "Home delivery" : "Library pickup"}</strong></div>
     <div class="profile-loan-meta"><span>Status</span><strong class="loan-status-badge status-${escapeHtml(loan.status)}">${escapeHtml(loan.status)}</strong></div>
     <div class="profile-loan-meta"><span>Due date</span><strong>${escapeHtml(loan.dueAt ? formatDate(loan.dueAt) : "—")}</strong></div>
-    ${isDelivery ? `<div class="profile-delivery-address"><span>Delivery address</span><strong>${escapeHtml(address.recipient || "")} · ${escapeHtml(address.line1 || "")}${address.line2 ? `, ${escapeHtml(address.line2)}` : ""}, ${escapeHtml(address.city || "")}, ${escapeHtml(address.region || "")} ${escapeHtml(address.postalCode || "")}, ${escapeHtml(address.country || "")}</strong><small>${escapeHtml(address.phone || "")}</small></div>${renderTracking(loan.trackingStatus)}` : `<div class="profile-delivery-address"><span>Pickup location</span><strong>${escapeHtml(librarySettings.name)} · ${escapeHtml(pickupAddress)}</strong><small>Weekday hours: ${escapeHtml(librarySettings.weekdayHours)}</small></div>`}
+    ${isDelivery ? `<div class="profile-delivery-address"><span>Delivery address</span><strong>${escapeHtml(address.recipient || "")} · ${escapeHtml(address.line1 || "")}${address.line2 ? `, ${escapeHtml(address.line2)}` : ""}, ${escapeHtml(address.city || "")}, ${escapeHtml(address.region || "")} ${escapeHtml(address.postalCode || "")}, ${escapeHtml(address.country || "")}</strong><small>${escapeHtml(address.phone || "")}</small><small>Delivery fee: ${loan.deliveryFeeRupees === undefined ? "Not recorded" : `₹${Number(loan.deliveryFeeRupees).toLocaleString("en-IN")} · demo only, not charged`}</small><small>Payment status: ${loan.paymentStatus === "demo_only" ? "Demo simulation only (no money charged)" : loan.paymentStatus === "not_required" ? "Not required" : "Not recorded"}</small></div>${renderTracking(loan.trackingStatus)}` : `<div class="profile-delivery-address"><span>Pickup location</span><strong>${escapeHtml(librarySettings.name)} · ${escapeHtml(pickupAddress)}</strong><small>Weekday hours: ${escapeHtml(librarySettings.weekdayHours)}</small></div>`}
   </article>`;
 }
 

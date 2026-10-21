@@ -26,7 +26,7 @@
       <section class="fulfillment-banner delivery-banner">
         <p class="eyebrow eyebrow-light"><span></span> HOME DELIVERY</p>
         <h1>A little reading<br><em>at your doorstep.</em></h1>
-        <p>Add your delivery details to request a book. Track its demo status from your profile.</p>
+        <p>Delivery includes a ₹45 charge. This demo can simulate payment, but it will not charge real money.</p>
       </section>
       <section class="fulfillment-main">
         <a class="fulfillment-back" id="fulfillment-back" href="#">← Change fulfillment option</a>
@@ -34,6 +34,10 @@
         <form class="fulfillment-panel delivery-form hidden" id="delivery-form">
           <div class="fulfillment-panel-heading"><span class="fulfillment-choice-icon" aria-hidden="true">↗</span><div><p class="eyebrow">DELIVERY DETAILS</p><h2>Where should it <em>go?</em></h2></div></div>
           <div class="delivery-demo-note"><strong>Delivery tracker demo</strong><span>This library demo does not connect to a courier. Staff can update the simulated tracking stages from the admin dashboard.</span></div>
+          <div class="delivery-cost-summary" aria-label="Delivery charge summary">
+            <div><span>Home delivery charge</span><strong>₹45</strong></div>
+            <p>Demo payment only — no payment gateway is connected and no money will be charged.</p>
+          </div>
           <div class="delivery-form-grid">
             <label>Recipient name *<input name="recipient" required maxlength="100" autocomplete="name"></label>
             <label>Phone number *<input name="phone" type="tel" required maxlength="30" autocomplete="tel" placeholder="+1 555 010 1234"></label>
@@ -46,13 +50,8 @@
             <label class="address-wide">Delivery instructions<input name="instructions" maxlength="300" placeholder="Optional"></label>
           </div>
           <p class="fulfillment-message hidden" id="fulfillment-message" role="status"></p>
-          <button class="button fulfillment-submit" id="delivery-submit" type="submit">Confirm delivery request <span aria-hidden="true">→</span></button>
+          <button class="button fulfillment-submit" id="delivery-submit" type="submit">Continue to payment <span aria-hidden="true">→</span></button>
         </form>
-        <section class="fulfillment-success hidden" id="delivery-success" role="status">
-          <span class="success-mark" aria-hidden="true">✓</span><p class="eyebrow">DELIVERY REQUEST RECEIVED</p><h2>Your next chapter<br><em>is in motion.</em></h2><p>Your request is saved. Follow the simulated delivery stages from your profile.</p>
-          <div class="delivery-tracker" id="delivery-tracker"></div>
-          <a class="button" href="/profile.html">Track in my profile <span aria-hidden="true">→</span></a>
-        </section>
       </section>
     </main>
     <footer class="site-footer"><div class="footer-bottom"><span>© <span class="current-year"></span> Central Public Library</span><span>KNOWLEDGE IS FOR EVERYONE.</span><a href="/#home">HOME ↑</a></div></footer>

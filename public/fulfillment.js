@@ -39,23 +39,7 @@ function bookCard(book) {
   const title = escapeHtml(book.title);
   const coverUrl = book.coverUrl || (book.coverId ? `https://covers.openlibrary.org/b/id/${Number(book.coverId)}-M.jpg` : "");
   return `<span class="fulfillment-book-cover">${coverUrl ? `<img src="${escapeHtml(coverUrl)}" alt="Cover of ${title}">` : `<span>${title}</span>`}</span>
-    <span class="fulfillment-book-info"><span class="eyebrow">YOUR SELECTED BOOK</span><strong>${title}</strong><span>by ${escapeHtml(book.author || "Unknown author")}</span>${book.year ? `<small>Published ${escapeHtml(book.year)}</small>` : ""}</span>`;
-}
-
-function tracker(status = "confirmed") {
-  const stages = [
-    ["confirmed", "Request confirmed"],
-    ["preparing", "Preparing book"],
-    ["out_for_delivery", "Out for delivery"],
-    ["delivered", "Delivered"]
-  ];
-  const current = Math.max(0, stages.findIndex(([key]) => key === status));
-  return `<div class="delivery-tracker-heading"><strong>Delivery tracker</strong><span>DEMO</span></div>
-    <div class="delivery-tracker-steps">${stages.map(([key, label], index) => `
-      <div class="delivery-step${index <= current ? " complete" : ""}${index === current ? " current" : ""}">
-        <span class="delivery-step-mark">${index < current ? "✓" : index + 1}</span><span>${label}</span>
-      </div>`).join("")}</div>
-    <p>Simulated status only — no courier service is connected.</p>`;
+    <span class="fulfillment-book-info"><span class="eyebrow">YOUR SELECTED BOOK</span><strong>${title}</strong><span>by ${escapeHtml(book.author || "Unknown author")}</span><span>Category: ${escapeHtml(book.category || "Other")}</span>${book.year ? `<small>Published ${escapeHtml(book.year)}</small>` : ""}</span>`;
 }
 
 function showLoginPrompt() {
@@ -129,6 +113,18 @@ async function initialize() {
       return;
     }
 
+    const savedAddress = sessionStorage.getItem(`library-delivery:${bookId}`);
+    if (savedAddress) {
+      try {
+        const address = JSON.parse(savedAddress);
+        for (const [field, value] of Object.entries(address)) {
+          const input = $("#delivery-form").elements.namedItem(field);
+          if (input && typeof value === "string") input.value = value;
+        }
+      } catch {
+        sessionStorage.removeItem(`library-delivery:${bookId}`);
+      }
+    }
     $("#delivery-form").classList.remove("hidden");
     $("#delivery-form").addEventListener("submit", submitDelivery);
   } catch (error) {
@@ -155,15 +151,13 @@ async function submitDelivery(event) {
     ["recipient", "phone", "line1", "line2", "city", "region", "postalCode", "country", "instructions"]
       .map((field) => [field, String(fields.get(field) || "").trim()])
   );
-  await submitRequest({
-    button: $("#delivery-submit"),
-    body: { bookId, fulfillmentMethod: "delivery", deliveryAddress },
-    onSuccess: (loan) => {
-      form.classList.add("hidden");
-      $("#delivery-success").classList.remove("hidden");
-      $("#delivery-tracker").innerHTML = tracker(loan.trackingStatus);
-    }
-  });
+  try {
+    sessionStorage.setItem(`library-delivery:${bookId}`, JSON.stringify(deliveryAddress));
+  } catch {
+    setMessage("Your browser could not save the delivery details for checkout. Please allow session storage and try again.");
+    return;
+  }
+  window.location.assign(`/payment.html?bookId=${encodeURIComponent(bookId)}`);
 }
 
 async function submitRequest({ button, body, onSuccess }) {
