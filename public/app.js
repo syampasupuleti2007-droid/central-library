@@ -47,11 +47,12 @@ function renderPublicIssue(issue) {
 
 async function loadPublicIssues() {
   const list = $("#public-issue-list");
+  if (!state.user) return;
   try {
     const { issues } = await api("/api/issues");
     list.innerHTML = issues.length
       ? issues.map(renderPublicIssue).join("")
-      : '<p class="empty-state">No community issues have been reported. Thank you for helping keep the library welcoming.</p>';
+      : '<p class="empty-state">No reports yet. Submit a report to follow its progress.</p>';
   } catch (error) {
     list.innerHTML = `<p class="empty-state">${escapeHtml(error.message)}</p>`;
   }
@@ -75,12 +76,14 @@ async function loadBooks() {
       const cover = coverUrl
         ? `<img class="book-cover" loading="lazy" src="${escapeHtml(coverUrl)}" alt="Cover of ${title}" onerror="this.remove()">`
         : `<div class="book-cover-placeholder">${title}</div>`;
+      const isAdmin = state.user?.role === "admin";
       return `<article class="book-card">
         <div class="book-cover-wrap">${cover}</div>
         <div class="book-info"><h3>${title}</h3>
         <p>by ${escapeHtml(book.author || "Unknown author")}</p>
         ${book.year ? `<span class="book-year">${escapeHtml(book.year)}</span>` : ""}
         ${state.user ? `<button class="book-request" data-request-book="${escapeHtml(book._id)}">Request this book →</button>` : ""}
+        ${isAdmin ? `<button class="book-delete" type="button" data-delete-book="${escapeHtml(book._id)}">Remove book</button>` : ""}
         </div>
       </article>`;
     }).join("");
@@ -157,27 +160,21 @@ async function loadLibrarySettings() {
 function renderUser() {
   $("#login-open").classList.toggle("hidden", Boolean(state.user));
   $("#join-open").classList.toggle("hidden", Boolean(state.user));
+  $("#community-issues-nav").classList.add("hidden");
+  $("#community-issues").classList.add("hidden");
   $("#profile-nav").classList.toggle("hidden", !state.user);
   $("#admin-nav").classList.toggle("hidden", state.user?.role !== "admin");
   const account = $("#account-button");
   account.classList.toggle("hidden", !state.user);
+  $("#dashboard").classList.add("hidden");
+  $("#member-dashboard").classList.add("hidden");
+  $("#admin-dashboard").classList.add("hidden");
   if (state.user) {
     account.textContent = "My profile";
-    $("#dashboard").classList.remove("hidden");
-    $("#dashboard-title").innerHTML = `My <em>library.</em>`;
-    $("#member-dashboard").classList.toggle("hidden", state.user.role !== "member");
-    $("#admin-dashboard").classList.toggle("hidden", state.user.role !== "admin");
-    if (state.user.role === "member") {
-      loadMemberLoans();
-    }
-    if (state.user.role === "admin") {
-      state.adminMembersPage = 1;
-      loadAdminOverview();
-      loadAdminMembers();
-    }
   } else {
-    $("#dashboard").classList.add("hidden");
+    $("#public-issue-list").replaceChildren();
   }
+  if (state.user) loadPublicIssues();
   loadBooks();
 }
 
@@ -286,9 +283,25 @@ pagination.addEventListener("click", (event) => {
 });
 
 bookGrid.addEventListener("click", async (event) => {
+  const deleteButton = event.target.closest("[data-delete-book]");
+  if (deleteButton) {
+    const title = deleteButton.closest(".book-card")?.querySelector("h3")?.textContent || "this book";
+    if (!window.confirm(`Remove "${title}" from the library catalog?`)) return;
+    try {
+      await api(`/api/admin/books/${encodeURIComponent(deleteButton.dataset.deleteBook)}`, { method: "DELETE" });
+      notify("Book removed from the collection.");
+      loadBooks();
+      if (state.user?.role === "admin") {
+        loadAdminOverview();
+      }
+    } catch (error) {
+      notify(error.message);
+    }
+    return;
+  }
+
   const button = event.target.closest("[data-request-book]");
   if (!button) return;
-  const bookCard = button.closest(".book-card");
   window.location.assign(`/fulfillment.html?bookId=${encodeURIComponent(button.dataset.requestBook)}`);
 });
 
@@ -319,6 +332,10 @@ $("#auth-form").addEventListener("submit", async (event) => {
     state.user = data.user;
     $("#auth-dialog").close();
     event.currentTarget.reset();
+    if (state.user.role === "admin") {
+      window.location.assign("/admin.html");
+      return;
+    }
     const returnPath = new URLSearchParams(window.location.search).get("return");
     if (returnPath && returnPath.startsWith("/") && !returnPath.startsWith("//")) {
       window.location.assign(returnPath);
@@ -349,13 +366,15 @@ $("#issue-report-form").addEventListener("submit", async (event) => {
   const form = event.currentTarget;
   const button = form.querySelector("button[type=submit]");
   const message = $("#issue-report-message");
-  const payload = Object.fromEntries(new FormData(form).entries());
   button.disabled = true;
   message.textContent = "";
   try {
-    await api("/api/issues", { method: "POST", body: JSON.stringify(payload) });
+    const { notification } = await api("/api/issues", {
+      method: "POST",
+      body: JSON.stringify(Object.fromEntries(new FormData(form).entries()))
+    });
     form.reset();
-    message.textContent = "Your report was submitted and added to the public issue board.";
+    message.textContent = `Your report was submitted. ${notification.message}`;
     await loadPublicIssues();
   } catch (error) {
     message.textContent = error.message;
@@ -437,5 +456,4 @@ $("#year").textContent = new Date().getFullYear();
 loadBooks();
 refreshUser();
 loadLibrarySettings();
-loadPublicIssues();
 if (new URLSearchParams(window.location.search).get("login") === "1") showAuth("login");

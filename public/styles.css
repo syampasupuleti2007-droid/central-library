@@ -91,6 +91,8 @@ h1 em, h2 em { color: var(--gold); font-weight: 500; }
 .book-year { display: inline-block; margin-top: 10px; color: #9b815c; font-size: 9px; }
 .book-request { display: block; margin-top: 12px; border: 0; border-bottom: 1px solid #b9b5a8; padding: 0 0 4px; background: none; color: var(--green); font-size: 9px; font-weight: 600; }
 .book-request:hover { color: #9b7547; }
+.book-delete { display: block; margin-top: 8px; border: 1px solid #8f3d3d; background: transparent; color: #8f3d3d; padding: 7px 10px; font-size: 9px; font-weight: 600; cursor: pointer; }
+.book-delete:hover { background: rgba(143, 61, 61, .06); }
 .empty-state { grid-column: 1/-1; min-height: 160px; display: grid; place-items: center; color: var(--muted); font-size: 12px; text-align: center; }
 .catalog-pagination { display: flex; justify-content: center; gap: 8px; padding-top: 35px; }
 .page-button { min-width: 34px; height: 34px; border: 1px solid #d5d2c9; background: transparent; color: var(--green); font-size: 11px; }
@@ -135,6 +137,8 @@ h1 em, h2 em { color: var(--gold); font-weight: 500; }
 .issue-report-form input, .issue-report-form select { height: 38px; }
 .issue-report-form textarea { resize: vertical; line-height: 1.6; }
 .issue-report-form .button { justify-self: start; }
+.issue-sms-consent { display: flex !important; align-items: start; gap: 9px !important; line-height: 1.6; }
+.issue-sms-consent input { flex: 0 0 15px; width: 15px; height: 15px; margin: 1px 0 0; accent-color: var(--green); }
 .public-issue-list { display: grid; gap: 10px; }
 .public-issue-card { padding: 17px 19px; border: 1px solid var(--line); background: #fffefa; }
 .public-issue-meta, .admin-issue-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

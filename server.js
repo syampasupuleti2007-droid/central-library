@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true, select: false },
     role: { type: String, enum: ["member", "admin"], default: "member" },
+    libraryId: { type: String, unique: true, sparse: true, trim: true, uppercase: true },
     lastLoginAt: Date
   },
   { timestamps: true }
@@ -85,6 +86,9 @@ const issueSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true, maxlength: 120 },
     category: { type: String, required: true, enum: ["Facilities", "Books & collection", "Website", "Accessibility", "Other"] },
     description: { type: String, required: true, trim: true, maxlength: 2000 },
+    contactPhone: { type: String, trim: true, maxlength: 16 },
+    smsConsent: { type: Boolean, default: false },
+    reportedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     status: { type: String, enum: ["submitted", "reviewing", "resolved"], default: "submitted" }
   },
   { timestamps: true }
@@ -163,6 +167,35 @@ const issueSubmissionLimiter = rateLimit({
   message: { error: "Too many issue reports from this connection. Please try again later." }
 });
 
+async function sendIssueSms(phone, message) {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_FROM_NUMBER;
+  if (!accountSid || !authToken || !fromNumber) {
+    return { sent: false, message: "SMS notifications are not configured. Contact the library for updates." };
+  }
+
+  try {
+    const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: new URLSearchParams({ To: phone, From: fromNumber, Body: message }),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) {
+      console.error(`Twilio SMS request failed with HTTP status ${response.status}.`);
+      return { sent: false, message: "Your report was saved, but its SMS notification could not be sent. Please try again later." };
+    }
+    return { sent: true, message: "SMS update sent to your mobile." };
+  } catch (error) {
+    console.error("Unable to send issue report SMS:", error);
+    return { sent: false, message: "Your report was saved, but its SMS notification could not be sent. Please try again later." };
+  }
+}
+
 function createToken(user) {
   return jwt.sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET, { expiresIn: "7d" });
 }
@@ -199,12 +232,24 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+async function generateLibraryId() {
+  let candidate;
+  let attempts = 0;
+  do {
+    const nextNumber = (await User.countDocuments()) + 1 + attempts;
+    candidate = `CPL-${String(nextNumber).padStart(6, "0")}`;
+    attempts += 1;
+  } while (await User.exists({ libraryId: candidate }) && attempts < 20);
+  return candidate;
+}
+
 function publicUser(user) {
   return {
     id: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
+    libraryId: user.libraryId,
     createdAt: user.createdAt,
     lastLoginAt: user.lastLoginAt
   };
@@ -233,6 +278,7 @@ app.post("/api/auth/register", authLimiter, async (req, res, next) => {
       email: normalizedEmail,
       passwordHash: await bcrypt.hash(password, 12),
       role: "member",
+      libraryId: await generateLibraryId(),
       lastLoginAt: new Date()
     });
     setSessionCookie(res, user);
@@ -282,18 +328,22 @@ app.get("/api/library-settings", async (_req, res, next) => {
   }
 });
 
-app.get("/api/issues", async (_req, res, next) => {
+app.get("/api/issues", requireAuth, async (req, res, next) => {
   try {
-    const issues = await Issue.find().sort({ createdAt: -1 }).limit(100).select("title category description status createdAt updatedAt").lean();
+    const issues = await Issue.find({ reportedBy: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .select("title category description status createdAt updatedAt")
+      .lean();
     res.json({ issues });
   } catch (error) {
     next(error);
   }
 });
 
-app.post("/api/issues", issueSubmissionLimiter, async (req, res, next) => {
+app.post("/api/issues", requireAuth, issueSubmissionLimiter, async (req, res, next) => {
   try {
-    const { title, category, description } = req.body || {};
+    const { title, category, description, contactPhone, smsConsent } = req.body || {};
     if (typeof title !== "string" || title.trim().length < 4 || title.trim().length > 120) {
       return res.status(400).json({ error: "Issue title must be between 4 and 120 characters." });
     }
@@ -304,12 +354,28 @@ app.post("/api/issues", issueSubmissionLimiter, async (req, res, next) => {
     if (typeof description !== "string" || description.trim().length < 10 || description.trim().length > 2000) {
       return res.status(400).json({ error: "Please describe the issue in 10 to 2,000 characters." });
     }
+    if (typeof contactPhone !== "string" || !/^\+[1-9]\d{7,14}$/.test(contactPhone.trim())) {
+      return res.status(400).json({ error: "Enter a mobile number in international format, such as +14155552671." });
+    }
+    if (smsConsent !== true && smsConsent !== "true") {
+      return res.status(400).json({ error: "Please consent to SMS updates for this issue report." });
+    }
     const issue = await Issue.create({
       title: title.trim(),
       category,
-      description: description.trim()
+      description: description.trim(),
+      contactPhone: contactPhone.trim(),
+      smsConsent: true,
+      reportedBy: req.user._id
     });
-    res.status(201).json({ issue });
+    const notification = await sendIssueSms(
+      issue.contactPhone,
+      "Central Public Library: We received your issue report. Sign in to your profile for details and updates."
+    );
+    const responseIssue = issue.toObject();
+    delete responseIssue.contactPhone;
+    delete responseIssue.smsConsent;
+    res.status(201).json({ issue: responseIssue, notification });
   } catch (error) {
     next(error);
   }
@@ -435,7 +501,12 @@ app.get("/api/admin/overview", requireAuth, requireAdmin, async (_req, res, next
 
 app.get("/api/admin/issues", requireAuth, requireAdmin, async (_req, res, next) => {
   try {
-    const issues = await Issue.find().sort({ createdAt: -1 }).limit(200).lean();
+    const issues = await Issue.find()
+      .populate("reportedBy", "name")
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .select("-contactPhone -smsConsent")
+      .lean();
     res.json({ issues });
   } catch (error) {
     next(error);
@@ -449,9 +520,19 @@ app.patch("/api/admin/issues/:id", requireAuth, requireAdmin, async (req, res, n
       return res.status(400).json({ error: "Choose a valid issue status." });
     }
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "Choose a valid issue." });
-    const issue = await Issue.findByIdAndUpdate(req.params.id, { $set: { status } }, { new: true, runValidators: true }).lean();
+    const previousIssue = await Issue.findById(req.params.id).select("title status contactPhone smsConsent").lean();
+    if (!previousIssue) return res.status(404).json({ error: "Issue report not found." });
+    const issue = await Issue.findByIdAndUpdate(req.params.id, { $set: { status } }, { new: true, runValidators: true })
+      .select("-contactPhone -smsConsent")
+      .lean();
     if (!issue) return res.status(404).json({ error: "Issue report not found." });
-    res.json({ issue });
+    const notification = previousIssue.status === status || !previousIssue.smsConsent || !previousIssue.contactPhone
+      ? null
+      : await sendIssueSms(
+        previousIssue.contactPhone,
+        `Central Public Library: Your issue report status is now ${issue.status}. Sign in to your profile for details.`
+      );
+    res.json({ issue, notification });
   } catch (error) {
     next(error);
   }
@@ -556,6 +637,20 @@ app.put("/api/admin/library-settings", requireAuth, requireAdmin, async (req, re
   }
 });
 
+app.get("/api/admin/pickups", requireAuth, requireAdmin, async (_req, res, next) => {
+  try {
+    const pickups = await Loan.find({ fulfillmentMethod: "pickup" })
+      .populate("member", "name email")
+      .populate("book", "title author")
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+    res.json({ pickups });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/admin/deliveries", requireAuth, requireAdmin, async (_req, res, next) => {
   try {
     const loans = await Loan.find({ fulfillmentMethod: "delivery" })
@@ -574,14 +669,25 @@ app.get("/api/admin/members", requireAuth, requireAdmin, async (req, res, next) 
   try {
     const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
     const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
+    const search = typeof req.query.search === "string" ? req.query.search.trim().slice(0, 100) : "";
+    const filter = {
+      role: "member",
+      ...(search ? {
+        $or: [
+          { name: { $regex: escapeRegex(search), $options: "i" } },
+          { email: { $regex: escapeRegex(search), $options: "i" } },
+          { libraryId: { $regex: escapeRegex(search), $options: "i" } }
+        ]
+      } : {})
+    };
     const [members, total] = await Promise.all([
-      User.find({ role: "member" })
+      User.find(filter)
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
-        .select("name email createdAt")
+        .select("name email libraryId createdAt lastLoginAt")
         .lean(),
-      User.countDocuments({ role: "member" })
+      User.countDocuments(filter)
     ]);
     const loans = members.length
       ? await Loan.find({ member: { $in: members.map((member) => member._id) } })
@@ -634,6 +740,21 @@ app.post("/api/admin/books", requireAuth, requireAdmin, async (req, res, next) =
       coverUrl: validatedCoverUrl
     });
     res.status(201).json({ book });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/admin/books/:id", requireAuth, requireAdmin, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return res.status(400).json({ error: "Choose a valid book." });
+    }
+    const book = await Book.findByIdAndDelete(req.params.id);
+    if (!book) {
+      return res.status(404).json({ error: "That book could not be found." });
+    }
+    res.json({ success: true, deletedBook: { _id: book._id, title: book.title } });
   } catch (error) {
     next(error);
   }
@@ -720,10 +841,17 @@ async function start() {
         name: "Library Administrator",
         email,
         passwordHash: await bcrypt.hash(process.env.ADMIN_PASSWORD, 12),
-        role: "admin"
+        role: "admin",
+        libraryId: await generateLibraryId()
       });
       console.log(`Created initial administrator account for ${email}.`);
     }
+  }
+
+  const usersWithoutLibraryId = await User.find({ libraryId: { $exists: false } });
+  for (const user of usersWithoutLibraryId) {
+    user.libraryId = await generateLibraryId();
+    await user.save();
   }
 
   app.listen(port, () => console.log(`Central Public Library is running at http://localhost:${port}`));

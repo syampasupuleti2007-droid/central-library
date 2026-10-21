@@ -1,5 +1,11 @@
 const $ = (selector) => document.querySelector(selector);
-const adminState = { user: null, bookPage: 1, bookSearch: "", searchTimer: null };
+const adminState = {
+  user: null,
+  activeTab: "overview",
+  search: { books: "", members: "", pickups: "", deliveries: "", issues: "" },
+  memberPage: 1,
+  memberSearchTimer: null
+};
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -37,17 +43,76 @@ function issueStatusLabel(status) {
   return ({ submitted: "Submitted", reviewing: "Under review", resolved: "Resolved" })[status] || "Submitted";
 }
 
+function setActiveAdminTab(panelName) {
+  adminState.activeTab = panelName;
+  document.querySelectorAll("[data-admin-panel]").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.dataset.adminPanel !== panelName);
+  });
+  document.querySelectorAll("[data-admin-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.adminTab === panelName);
+  });
+}
+
+function filterMatches(term, values) {
+  const query = String(term || "").trim().toLowerCase();
+  if (!query) return true;
+  return values.some((value) => String(value || "").toLowerCase().includes(query));
+}
+
 function renderAdmin(user) {
   adminState.user = user;
   $("#admin-login-card").classList.add("hidden");
   $("#admin-dashboard").classList.remove("hidden");
   $("#admin-name").textContent = user.name.split(" ")[0] + ".";
   $("#admin-email").textContent = user.email;
+  setActiveAdminTab(adminState.activeTab);
   loadOverview();
   loadSettings();
-  loadBooks();
+  loadBooksForAdmin();
+  loadMembers();
+  loadPickups();
   loadDeliveries();
   loadIssues();
+}
+
+async function loadBooksForAdmin(searchText = adminState.search.books) {
+  const list = $("#admin-book-manager");
+  list.innerHTML = '<p class="admin-empty">Loading catalog books...</p>';
+  try {
+    const searchParam = searchText.trim();
+    const query = new URLSearchParams({ page: "1", limit: "10" });
+    if (searchParam) query.set("search", searchParam);
+    const { books } = await api(`/api/admin/books?${query.toString()}`);
+    list.innerHTML = books.length
+      ? books.map((book) => `
+        <article class="admin-issue-card">
+          <div class="admin-issue-heading">
+            <div>
+              <p class="eyebrow">BOOK · ${escapeHtml(book.year || "n/a")}</p>
+              <h3>${escapeHtml(book.title || "Untitled book")}</h3>
+            </div>
+            <div class="admin-book-actions">
+              <button class="button button-small" type="button" data-admin-edit-book="${escapeHtml(book._id)}">Edit</button>
+              <button class="button button-small" type="button" data-admin-delete-book="${escapeHtml(book._id)}">Remove</button>
+            </div>
+          </div>
+          <p class="admin-issue-reporter">by ${escapeHtml(book.author || "Unknown author")}</p>
+          <form class="admin-settings-form admin-book-edit-form hidden" data-admin-book-form="${escapeHtml(book._id)}">
+            <label>Title<input name="title" value="${escapeHtml(book.title || "")}" required maxlength="300"></label>
+            <label>Author<input name="author" value="${escapeHtml(book.author || "")}" maxlength="200"></label>
+            <label>Publication year<input name="year" type="number" min="1" max="2100" value="${escapeHtml(book.year || "")}"></label>
+            <label>Cover image URL<input name="coverUrl" type="url" maxlength="2048" value="${escapeHtml(book.coverUrl || "")}" placeholder="https://example.com/cover.jpg"></label>
+            <div class="admin-form-actions">
+              <button class="button button-small" type="submit">Save</button>
+              <button class="button button-small" type="button" data-admin-cancel-edit="${escapeHtml(book._id)}">Cancel</button>
+            </div>
+          </form>
+        </article>
+      `).join("")
+      : '<p class="admin-empty">No books have been added to the collection yet.</p>';
+  } catch (error) {
+    list.innerHTML = `<p class="admin-empty error">${escapeHtml(error.message)}</p>`;
+  }
 }
 
 async function loadOverview() {
@@ -63,6 +128,56 @@ async function loadOverview() {
   }
 }
 
+function renderMember(member) {
+  const loans = member.loans || [];
+  const loanHistory = loans.length
+    ? `<div class="admin-member-loans">${loans.map((loan) => `
+      <div class="admin-member-loan">
+        <strong>${escapeHtml(loan.book?.title || "Book details unavailable")}</strong>
+        <span>${escapeHtml(loan.status)} · ${loan.fulfillmentMethod === "delivery" ? "Home delivery" : "Library pickup"} · Requested ${escapeHtml(new Date(loan.createdAt).toLocaleDateString())}</span>
+        ${loan.dueAt ? `<small>Due ${escapeHtml(new Date(loan.dueAt).toLocaleDateString())}</small>` : ""}
+      </div>`).join("")}</div>`
+    : '<p class="admin-empty admin-member-no-loans">No book requests or borrowing history yet.</p>';
+  return `<article class="admin-member-card">
+    <div class="admin-member-heading">
+      <div><p class="eyebrow">MEMBER · JOINED ${escapeHtml(new Date(member.createdAt).toLocaleDateString())}</p><h3>${escapeHtml(member.name || "Unnamed member")}</h3></div>
+      <span class="admin-member-library-id">${escapeHtml(member.libraryId || "ID not assigned")}</span>
+    </div>
+    <div class="admin-member-details">
+      <div><span>Email</span><strong>${escapeHtml(member.email || "Not provided")}</strong></div>
+      <div><span>Last login</span><strong>${escapeHtml(member.lastLoginAt ? new Date(member.lastLoginAt).toLocaleString() : "No login recorded")}</strong></div>
+    </div>
+    <h4>Book request history (${loans.length})</h4>
+    ${loanHistory}
+  </article>`;
+}
+
+async function loadMembers() {
+  const list = $("#admin-member-list");
+  const pagination = $("#admin-member-pagination");
+  list.innerHTML = '<p class="admin-empty">Loading members...</p>';
+  pagination.replaceChildren();
+  try {
+    const params = new URLSearchParams({
+      page: String(adminState.memberPage),
+      limit: "20"
+    });
+    if (adminState.search.members.trim()) params.set("search", adminState.search.members.trim());
+    const data = await api(`/api/admin/members?${params.toString()}`);
+    list.innerHTML = data.members.length
+      ? data.members.map(renderMember).join("")
+      : '<p class="admin-empty">No members match your search.</p>';
+    if (data.page > 1) {
+      pagination.insertAdjacentHTML("beforeend", '<button class="admin-page-button" type="button" data-member-page="previous">Previous</button>');
+    }
+    if (data.page < data.pages) {
+      pagination.insertAdjacentHTML("beforeend", '<button class="admin-page-button" type="button" data-member-page="next">Next</button>');
+    }
+  } catch (error) {
+    list.innerHTML = `<p class="admin-empty error">${escapeHtml(error.message)}</p>`;
+  }
+}
+
 async function loadSettings() {
   try {
     const { settings } = await api("/api/library-settings");
@@ -74,41 +189,6 @@ async function loadSettings() {
   } catch (error) {
     setMessage("#settings-message", error.message, true);
   }
-}
-
-function renderBookEditor(book) {
-  return `<form class="admin-book-row" data-book-form="${escapeHtml(book._id)}">
-    <div class="admin-book-identity"><span class="admin-book-cover">${book.coverUrl || book.coverId ? `<img src="${escapeHtml(book.coverUrl || `https://covers.openlibrary.org/b/id/${Number(book.coverId)}-S.jpg`)}" alt="">` : "C"}</span><span class="admin-book-source">${escapeHtml(book.source || "staff")}</span></div>
-    <label>Title<input name="title" value="${escapeHtml(book.title)}" required maxlength="300"></label>
-    <label>Author<input name="author" value="${escapeHtml(book.author || "")}" maxlength="200"></label>
-    <label>Year<input name="year" type="number" min="1" max="2100" value="${escapeHtml(book.year || "")}"></label>
-    <label>Cover URL<input name="coverUrl" type="url" maxlength="2048" value="${escapeHtml(book.coverUrl || "")}" placeholder="Open Library cover or HTTPS URL"></label>
-    <div class="admin-book-save"><button class="button button-small" type="submit">Save changes</button><p class="admin-message" role="status"></p></div>
-  </form>`;
-}
-
-async function loadBooks() {
-  const list = $("#admin-book-list");
-  list.innerHTML = '<p class="admin-empty">Loading books...</p>';
-  try {
-    const params = new URLSearchParams({ page: adminState.bookPage, limit: "20" });
-    if (adminState.bookSearch) params.set("search", adminState.bookSearch);
-    const data = await api(`/api/admin/books?${params}`);
-    list.innerHTML = data.books.length
-      ? data.books.map(renderBookEditor).join("")
-      : '<p class="admin-empty">No matching books. Add a book using the form above.</p>';
-    renderBookPagination(data.page, data.pages);
-  } catch (error) {
-    list.innerHTML = `<p class="admin-empty error">${escapeHtml(error.message)}</p>`;
-    $("#admin-book-pagination").replaceChildren();
-  }
-}
-
-function renderBookPagination(page, pages) {
-  const controls = $("#admin-book-pagination");
-  controls.innerHTML = "";
-  if (page > 1) controls.insertAdjacentHTML("beforeend", '<button class="admin-page-button" data-book-page="previous" type="button">← Previous</button>');
-  if (page < pages) controls.insertAdjacentHTML("beforeend", '<button class="admin-page-button" data-book-page="next" type="button">Next →</button>');
 }
 
 function trackingOptions(selected) {
@@ -143,14 +223,67 @@ function renderDelivery(loan) {
   </article>`;
 }
 
+function renderPickup(loan) {
+  const member = loan.member || {};
+  const book = loan.book || {};
+  const pickupLabel = loan.status === "requested" ? "Awaiting admin review" : loan.status === "approved" ? "Ready for pickup" : loan.status === "returned" ? "Returned" : "Declined";
+  return `<article class="admin-delivery-card" data-pickup-card="${escapeHtml(loan._id)}">
+    <div class="admin-delivery-main"><div><p class="eyebrow">PICKUP REQUEST · ${escapeHtml(new Date(loan.createdAt).toLocaleDateString())}</p><h3>${escapeHtml(book.title || "Book")}</h3><p>by ${escapeHtml(book.author || "Unknown author")}</p></div><span class="admin-loan-status status-${escapeHtml(loan.status)}">${escapeHtml(loan.status)}</span></div>
+    <div class="admin-delivery-details"><div><span>Member</span><strong>${escapeHtml(member.name || "Unknown")} · ${escapeHtml(member.email || "")}</strong></div><div><span>Pickup status</span><strong>${escapeHtml(pickupLabel)}</strong></div><div><span>Due date</span><strong>${escapeHtml(loan.dueAt ? new Date(loan.dueAt).toLocaleDateString() : "Not set")}</strong></div></div>
+    ${loan.status === "requested" ? `<div class="admin-delivery-actions"><button type="button" data-pickup-status="approved" data-loan-id="${escapeHtml(loan._id)}">Approve request</button><button type="button" data-pickup-status="declined" data-loan-id="${escapeHtml(loan._id)}">Decline request</button></div>` : ""}
+    ${loan.status === "approved" ? `<div class="admin-delivery-actions"><button type="button" data-pickup-status="returned" data-loan-id="${escapeHtml(loan._id)}">Mark returned</button></div>` : ""}
+  </article>`;
+}
+
+async function loadPickups() {
+  const list = $("#admin-pickup-list");
+  list.innerHTML = '<p class="admin-empty">Loading pickup requests...</p>';
+  try {
+    const { pickups } = await api("/api/admin/pickups");
+    list.innerHTML = pickups.length
+      ? pickups.map(renderPickup).join("")
+      : '<p class="admin-empty">No library pickup requests yet.</p>';
+  } catch (error) {
+    list.innerHTML = `<p class="admin-empty error">${escapeHtml(error.message)}</p>`;
+  }
+}
+
+async function loadPickups() {
+  const list = $("#admin-pickup-list");
+  list.innerHTML = '<p class="admin-empty">Loading pickup requests...</p>';
+  try {
+    const { pickups } = await api("/api/admin/pickups");
+    const filtered = pickups.filter((loan) => filterMatches(adminState.search.pickups, [
+      loan.member?.name,
+      loan.member?.email,
+      loan.book?.title,
+      loan.book?.author,
+      loan.status
+    ]));
+    list.innerHTML = filtered.length
+      ? filtered.map(renderPickup).join("")
+      : '<p class="admin-empty">No pickup requests match your search.</p>';
+  } catch (error) {
+    list.innerHTML = `<p class="admin-empty error">${escapeHtml(error.message)}</p>`;
+  }
+}
+
 async function loadDeliveries() {
   const list = $("#admin-delivery-list");
   list.innerHTML = '<p class="admin-empty">Loading delivery requests...</p>';
   try {
     const { deliveries } = await api("/api/admin/deliveries");
-    list.innerHTML = deliveries.length
-      ? deliveries.map(renderDelivery).join("")
-      : '<p class="admin-empty">No home delivery requests yet.</p>';
+    const filtered = deliveries.filter((loan) => filterMatches(adminState.search.deliveries, [
+      loan.member?.name,
+      loan.member?.email,
+      loan.book?.title,
+      loan.book?.author,
+      loan.deliveryAddress?.recipient,
+      loan.status
+    ]));
+    list.innerHTML = filtered.length
+      ? filtered.map(renderDelivery).join("")
+      : '<p class="admin-empty">No home delivery requests match your search.</p>';
   } catch (error) {
     list.innerHTML = `<p class="admin-empty error">${escapeHtml(error.message)}</p>`;
   }
@@ -159,6 +292,7 @@ async function loadDeliveries() {
 function renderIssue(issue) {
   return `<article class="admin-issue-card">
     <div class="admin-issue-heading"><div><p class="eyebrow">${escapeHtml(issue.category)} · ${escapeHtml(new Date(issue.createdAt).toLocaleDateString())}</p><h3>${escapeHtml(issue.title)}</h3></div><span class="issue-status issue-status-${escapeHtml(issue.status)}">${issueStatusLabel(issue.status)}</span></div>
+    <p class="admin-issue-reporter">Reported by ${escapeHtml(issue.reportedBy?.name || "Unknown member")}</p>
     <p class="admin-issue-description">${escapeHtml(issue.description)}</p>
     <label class="admin-issue-status">Public status
       <select data-issue-status="${escapeHtml(issue._id)}">
@@ -173,13 +307,48 @@ async function loadIssues() {
   list.innerHTML = '<p class="admin-empty">Loading issue reports...</p>';
   try {
     const { issues } = await api("/api/admin/issues");
-    list.innerHTML = issues.length
-      ? issues.map(renderIssue).join("")
-      : '<p class="admin-empty">No public issue reports have been submitted.</p>';
+    const filtered = issues.filter((issue) => filterMatches(adminState.search.issues, [
+      issue.title,
+      issue.category,
+      issue.description,
+      issue.reportedBy?.name,
+      issue.status
+    ]));
+    list.innerHTML = filtered.length
+      ? filtered.map(renderIssue).join("")
+      : '<p class="admin-empty">No public issue reports match your search.</p>';
   } catch (error) {
     list.innerHTML = `<p class="admin-empty error">${escapeHtml(error.message)}</p>`;
   }
 }
+
+document.querySelectorAll("[data-admin-tab]").forEach((button) => {
+  button.addEventListener("click", () => setActiveAdminTab(button.dataset.adminTab));
+});
+
+document.querySelectorAll("[data-admin-search]").forEach((input) => {
+  input.addEventListener("input", (event) => {
+    const key = event.target.dataset.adminSearch;
+    adminState.search[key] = event.target.value;
+    if (key === "members") {
+      adminState.memberPage = 1;
+      window.clearTimeout(adminState.memberSearchTimer);
+      adminState.memberSearchTimer = window.setTimeout(loadMembers, 250);
+      return;
+    }
+    if (key === "books") loadBooksForAdmin();
+    if (key === "pickups") loadPickups();
+    if (key === "deliveries") loadDeliveries();
+    if (key === "issues") loadIssues();
+  });
+});
+
+$("#admin-member-pagination").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-member-page]");
+  if (!button) return;
+  adminState.memberPage = Math.max(1, adminState.memberPage + (button.dataset.memberPage === "next" ? 1 : -1));
+  loadMembers();
+});
 
 $("#admin-login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -227,56 +396,86 @@ $("#admin-add-book-form").addEventListener("submit", async (event) => {
   const form = event.currentTarget;
   const button = form.querySelector("button[type=submit]");
   button.disabled = true;
-  setMessage("#add-book-message", "");
+  setMessage("#book-message", "");
   try {
-    await api("/api/admin/books", { method: "POST", body: JSON.stringify(Object.fromEntries(new FormData(form).entries())) });
+    const data = Object.fromEntries(new FormData(form).entries());
+    await api("/api/admin/books", { method: "POST", body: JSON.stringify(data) });
     form.reset();
-    setMessage("#add-book-message", "Book added to the public collection.");
-    await Promise.all([loadBooks(), loadOverview()]);
+    setMessage("#book-message", "Book added to the collection.");
+    await Promise.all([loadBooksForAdmin(), loadOverview()]);
   } catch (error) {
-    setMessage("#add-book-message", error.message, true);
+    setMessage("#book-message", error.message, true);
   } finally {
     button.disabled = false;
   }
 });
 
-$("#admin-book-list").addEventListener("submit", async (event) => {
-  const form = event.target.closest("[data-book-form]");
+$("#admin-book-manager").addEventListener("click", async (event) => {
+  const editButton = event.target.closest("[data-admin-edit-book]");
+  if (editButton) {
+    const form = document.querySelector(`[data-admin-book-form="${CSS.escape(editButton.dataset.adminEditBook)}"]`);
+    if (form) {
+      form.classList.remove("hidden");
+    }
+    return;
+  }
+
+  const cancelButton = event.target.closest("[data-admin-cancel-edit]");
+  if (cancelButton) {
+    const form = document.querySelector(`[data-admin-book-form="${CSS.escape(cancelButton.dataset.adminCancelEdit)}"]`);
+    if (form) form.classList.add("hidden");
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-admin-delete-book]");
+  if (!deleteButton) return;
+  const title = deleteButton.closest(".admin-issue-card")?.querySelector("h3")?.textContent || "this book";
+  if (!window.confirm(`Remove "${title}" from the catalog?`)) return;
+  deleteButton.disabled = true;
+  try {
+    await api(`/api/admin/books/${encodeURIComponent(deleteButton.dataset.adminDeleteBook)}`, { method: "DELETE" });
+    await Promise.all([loadBooksForAdmin(), loadOverview()]);
+  } catch (error) {
+    window.alert(error.message);
+    deleteButton.disabled = false;
+  }
+});
+
+$("#admin-book-manager").addEventListener("submit", async (event) => {
+  const form = event.target.closest("[data-admin-book-form]");
   if (!form) return;
   event.preventDefault();
   const button = form.querySelector("button[type=submit]");
-  const message = form.querySelector(".admin-message");
   button.disabled = true;
-  message.textContent = "";
   try {
-    await api(`/api/admin/books/${encodeURIComponent(form.dataset.bookForm)}`, {
+    const payload = Object.fromEntries(new FormData(form).entries());
+    await api(`/api/admin/books/${encodeURIComponent(form.dataset.adminBookForm)}`, {
       method: "PUT",
-      body: JSON.stringify(Object.fromEntries(new FormData(form).entries()))
+      body: JSON.stringify(payload)
     });
-    message.textContent = "Saved.";
-    message.classList.remove("error");
+    form.classList.add("hidden");
+    await Promise.all([loadBooksForAdmin(), loadOverview()]);
   } catch (error) {
-    message.textContent = error.message;
-    message.classList.add("error");
+    window.alert(error.message);
   } finally {
     button.disabled = false;
   }
 });
 
-$("#admin-book-search").addEventListener("input", (event) => {
-  window.clearTimeout(adminState.searchTimer);
-  adminState.searchTimer = window.setTimeout(() => {
-    adminState.bookSearch = event.target.value.trim();
-    adminState.bookPage = 1;
-    loadBooks();
-  }, 250);
-});
-
-$("#admin-book-pagination").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-book-page]");
+$("#admin-pickup-list").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-pickup-status]");
   if (!button) return;
-  adminState.bookPage = Math.max(1, adminState.bookPage + (button.dataset.bookPage === "next" ? 1 : -1));
-  loadBooks();
+  button.disabled = true;
+  try {
+    await api(`/api/admin/loans/${encodeURIComponent(button.dataset.loanId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: button.dataset.pickupStatus })
+    });
+    await Promise.all([loadPickups(), loadOverview()]);
+  } catch (error) {
+    button.disabled = false;
+    window.alert(error.message);
+  }
 });
 
 $("#admin-delivery-list").addEventListener("change", async (event) => {
@@ -316,19 +515,24 @@ $("#admin-issue-list").addEventListener("change", async (event) => {
   if (!select) return;
   select.disabled = true;
   try {
-    await api(`/api/admin/issues/${encodeURIComponent(select.dataset.issueStatus)}`, {
+    const { notification } = await api(`/api/admin/issues/${encodeURIComponent(select.dataset.issueStatus)}`, {
       method: "PATCH",
       body: JSON.stringify({ status: select.value })
     });
     await loadIssues();
+    if (notification && !notification.sent) {
+      window.alert(`Report status updated. ${notification.message}`);
+    }
   } catch (error) {
     window.alert(error.message);
     await loadIssues();
   }
 });
 
+$("#refresh-pickups").addEventListener("click", loadPickups);
 $("#refresh-deliveries").addEventListener("click", loadDeliveries);
 $("#refresh-issues").addEventListener("click", loadIssues);
+$("#refresh-members").addEventListener("click", loadMembers);
 $("#admin-logout").addEventListener("click", async () => {
   try {
     await api("/api/auth/logout", { method: "POST" });

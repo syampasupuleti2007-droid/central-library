@@ -67,12 +67,35 @@ function renderAccount(user) {
   $("#profile-avatar").textContent = initials;
   $("#profile-role").textContent = user.role;
   $("#profile-name-detail").textContent = user.name;
+  $("#profile-library-id").textContent = user.libraryId || "Not assigned";
   $("#profile-email").textContent = user.email;
   $("#profile-account-type").textContent = user.role === "admin" ? "Administrator" : "Library member";
   $("#profile-joined").textContent = formatDate(user.createdAt);
   $("#profile-last-login").textContent = formatDate(user.lastLoginAt, true);
   $("#profile-message").classList.add("hidden");
   $("#profile-content").classList.remove("hidden");
+}
+
+function renderIssue(issue) {
+  return `<article class="public-issue-card">
+    <div class="public-issue-meta"><span>${escapeHtml(issue.category)}</span><span class="issue-status issue-status-${escapeHtml(issue.status)}">${({ submitted: "Submitted", reviewing: "Under review", resolved: "Resolved" })[issue.status] || "Submitted"}</span></div>
+    <h3>${escapeHtml(issue.title)}</h3>
+    <p class="public-issue-date">Reported ${escapeHtml(new Date(issue.createdAt).toLocaleDateString())}</p>
+    <p class="public-issue-description">${escapeHtml(issue.description)}</p>
+  </article>`;
+}
+
+async function loadUserIssues() {
+  const list = $("#profile-issue-list");
+  list.innerHTML = '<p class="empty-state">Loading your complaints...</p>';
+  try {
+    const { issues } = await api("/api/issues");
+    list.innerHTML = issues.length
+      ? issues.map(renderIssue).join("")
+      : '<p class="empty-state">No complaints yet. Submit one and it will appear in the administrator portal.</p>';
+  } catch (error) {
+    list.innerHTML = `<p class="empty-state">${escapeHtml(error.message)}</p>`;
+  }
 }
 
 function renderLoan(loan) {
@@ -139,6 +162,28 @@ async function renderHistory() {
   }
 }
 
+$("#profile-issue-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const button = form.querySelector("button[type=submit]");
+  const message = $("#profile-issue-message");
+  button.disabled = true;
+  message.textContent = "";
+  try {
+    const { notification } = await api("/api/issues", {
+      method: "POST",
+      body: JSON.stringify(Object.fromEntries(new FormData(form).entries()))
+    });
+    form.reset();
+    message.textContent = `Your complaint was submitted. ${notification.message}`;
+    await loadUserIssues();
+  } catch (error) {
+    message.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
 $("#profile-logout").addEventListener("click", async () => {
   const button = $("#profile-logout");
   button.disabled = true;
@@ -184,6 +229,11 @@ async function initializeProfile() {
     await renderHistory();
   } catch (error) {
     $("#profile-loans").innerHTML = `<div class="profile-empty"><h3>Book history is unavailable.</h3><p>${escapeHtml(error.message)}</p></div>`;
+  }
+  try {
+    await loadUserIssues();
+  } catch (error) {
+    $("#profile-issue-list").innerHTML = `<p class="empty-state">${escapeHtml(error.message)}</p>`;
   }
 }
 

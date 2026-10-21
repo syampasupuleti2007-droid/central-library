@@ -49,9 +49,22 @@
             <div><p class="eyebrow">ADMINISTRATOR CONSOLE</p><h2>Welcome, <em id="admin-name">librarian.</em></h2><p>Signed in as <span id="admin-email"></span></p></div>
             <button class="text-button" id="admin-logout" type="button">Log out ↗</button>
           </div>
-          <div class="admin-stat-grid" id="admin-stats"></div>
 
-          <section class="admin-section" aria-labelledby="location-title">
+          <div class="admin-section-tabs" role="tablist" aria-label="Admin sections">
+            <button class="admin-section-tab active" type="button" data-admin-tab="overview">Overview</button>
+            <button class="admin-section-tab" type="button" data-admin-tab="library">Library details</button>
+            <button class="admin-section-tab" type="button" data-admin-tab="books">Books</button>
+            <button class="admin-section-tab" type="button" data-admin-tab="members">Members</button>
+            <button class="admin-section-tab" type="button" data-admin-tab="pickups">Pickup requests</button>
+            <button class="admin-section-tab" type="button" data-admin-tab="deliveries">Delivery requests</button>
+            <button class="admin-section-tab" type="button" data-admin-tab="issues">Public issue reports</button>
+          </div>
+
+          <div class="admin-panel-section" data-admin-panel="overview">
+            <div class="admin-stat-grid" id="admin-stats"></div>
+          </div>
+
+          <section class="admin-panel-section admin-section hidden" data-admin-panel="library" aria-labelledby="location-title">
             <div class="admin-section-heading"><div><p class="eyebrow">PUBLIC-FACING INFORMATION</p><h2 id="location-title">Library location &amp; delivery</h2><p>Changes update the website, pickup page, and member delivery choices.</p></div></div>
             <form class="admin-settings-form" id="library-settings-form">
               <label>Library name<input name="name" required maxlength="120"></label>
@@ -70,28 +83,44 @@
             </form>
           </section>
 
-          <section class="admin-section" aria-labelledby="catalog-title">
-            <div class="admin-section-heading"><div><p class="eyebrow">COLLECTION MANAGEMENT</p><h2 id="catalog-title">Add &amp; update books</h2><p>Edit book details and cover URLs; changes appear in the public catalog and search.</p></div></div>
-            <form class="admin-add-book" id="admin-add-book-form">
-              <label>Title<input name="title" required maxlength="300" placeholder="Book title"></label>
-              <label>Author<input name="author" maxlength="200" placeholder="Author"></label>
-              <label>Year<input name="year" type="number" min="1" max="2100" placeholder="Year"></label>
-              <label class="admin-cover-field">Cover image URL<input name="coverUrl" type="url" maxlength="2048" placeholder="https://…"></label>
-              <button class="button" type="submit">Add book <span aria-hidden="true">+</span></button>
-              <p class="admin-message" id="add-book-message" role="status"></p>
+          <section class="admin-panel-section admin-section hidden" data-admin-panel="books" aria-labelledby="books-title">
+            <div class="admin-section-heading"><div><p class="eyebrow">COLLECTION</p><h2 id="books-title">Book management</h2><p>Expand the public catalog with a new title, author, and cover image.</p></div></div>
+            <form class="admin-settings-form" id="admin-add-book-form">
+              <label>Title<input name="title" required maxlength="300"></label>
+              <label>Author<input name="author" maxlength="200" placeholder="Unknown author"></label>
+              <label>Publication year<input name="year" type="number" min="1" max="2100"></label>
+              <label>Cover image URL<input name="coverUrl" type="url" maxlength="2048" placeholder="https://example.com/cover.jpg"></label>
+              <div class="admin-form-actions"><p class="admin-message" id="book-message" role="status"></p><button class="button" type="submit">Add to collection <span aria-hidden="true">→</span></button></div>
             </form>
-            <div class="admin-book-toolbar"><h3>Books in collection</h3><label class="admin-book-search">Search<input id="admin-book-search" type="search" placeholder="Title or author"></label></div>
-            <div class="admin-book-list" id="admin-book-list"><p class="admin-empty">Loading books...</p></div>
-            <div class="admin-pagination" id="admin-book-pagination"></div>
+            <div class="admin-book-toolbar">
+              <h3>Catalog books</h3>
+              <div class="admin-book-search"><label>Search <input type="search" placeholder="Search books" data-admin-search="books"></label></div>
+            </div>
+            <div class="admin-delivery-list" id="admin-book-manager"><p class="admin-empty">Loading catalog books...</p></div>
           </section>
 
-          <section class="admin-section" aria-labelledby="delivery-title">
+          <section class="admin-panel-section admin-section hidden" data-admin-panel="members" aria-labelledby="members-title">
+            <div class="admin-section-heading"><div><p class="eyebrow">MEMBER ACCOUNTS</p><h2 id="members-title">Library members</h2><p>View member contact information, library IDs, account dates, and book request history.</p></div><button class="button button-small" id="refresh-members" type="button">Refresh members ↻</button></div>
+            <div class="admin-search-field"><label>Search members <input type="search" placeholder="Search name, email, or library ID" data-admin-search="members"></label></div>
+            <div class="admin-member-list" id="admin-member-list"><p class="admin-empty">Loading members...</p></div>
+            <div class="admin-pagination" id="admin-member-pagination"></div>
+          </section>
+
+          <section class="admin-panel-section admin-section hidden" data-admin-panel="pickups" aria-labelledby="pickup-title">
+            <div class="admin-section-heading"><div><p class="eyebrow">FULFILLMENT</p><h2 id="pickup-title">Library pickup requests</h2><p>Approve requests, update pickup status, or mark items returned when a member picks them up.</p></div><button class="button button-small" id="refresh-pickups" type="button">Refresh pickups ↻</button></div>
+            <div class="admin-search-field"><label>Search pickup requests <input type="search" placeholder="Filter by member or title" data-admin-search="pickups"></label></div>
+            <div class="admin-delivery-list" id="admin-pickup-list"><p class="admin-empty">Loading pickup requests...</p></div>
+          </section>
+
+          <section class="admin-panel-section admin-section hidden" data-admin-panel="deliveries" aria-labelledby="delivery-title">
             <div class="admin-section-heading"><div><p class="eyebrow">FULFILLMENT &amp; TRACKING</p><h2 id="delivery-title">Delivery requests</h2><p>Review delivery contact details and update the demo tracker. No courier is connected.</p></div><button class="button button-small" id="refresh-deliveries" type="button">Refresh requests ↻</button></div>
+            <div class="admin-search-field"><label>Search delivery requests <input type="search" placeholder="Filter by member or book" data-admin-search="deliveries"></label></div>
             <div class="admin-delivery-list" id="admin-delivery-list"><p class="admin-empty">Loading delivery requests...</p></div>
           </section>
 
-          <section class="admin-section" aria-labelledby="issues-title">
+          <section class="admin-panel-section admin-section hidden" data-admin-panel="issues" aria-labelledby="issues-title">
             <div class="admin-section-heading"><div><p class="eyebrow">COMMUNITY FEEDBACK</p><h2 id="issues-title">Public issue reports</h2><p>Review reports submitted from the public site and update their visible status.</p></div><button class="button button-small" id="refresh-issues" type="button">Refresh issues ↻</button></div>
+            <div class="admin-search-field"><label>Search issue reports <input type="search" placeholder="Filter by member, title, or category" data-admin-search="issues"></label></div>
             <div class="admin-issue-list" id="admin-issue-list"><p class="admin-empty">Loading issue reports...</p></div>
           </section>
         </div>
