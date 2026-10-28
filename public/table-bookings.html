@@ -3,46 +3,222 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#173d35">
-    <meta name="description" content="Reserve a study table at Central Public Library.">
+    <meta name="theme-color" content="#0f0f0f">
+    <meta name="description" content="Reserve a study table at Central Public Library — pick your floor, time, and seat like a pro.">
     <title>Book a Table — Central Public Library</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./styles.css">
-    <link rel="stylesheet" href="./profile.css">
-    <script src="./member-service.js" defer></script>
+    <link rel="stylesheet" href="./table-booking-bms.css">
+    <script src="./table-booking-bms.js" defer></script>
   </head>
-  <body class="profile-page" data-member-service="table-bookings">
-    <header class="site-header">
-      <a class="brand" href="/#home" aria-label="Central Public Library home"><span class="brand-mark" aria-hidden="true">C</span><span class="brand-name">Central <span>Public Library</span></span></a>
-      <button class="menu-toggle" id="service-menu-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false">☰</button>
-      <nav class="main-nav" id="service-main-nav" aria-label="Member navigation">
-        <a href="/#home">Home</a><a href="/#catalog">Explore books</a><a href="/profile.html">My profile</a>
-        <a href="/notifications.html">Notifications</a><a class="active" href="/table-bookings.html" aria-current="page">Book a table</a><a href="/book-suggestion.html">Suggest a book</a><a href="/complaint.html">Complaints</a>
+  <body class="bms-page" data-member-service="table-bookings">
+    <header class="bms-header">
+      <a class="brand bms-brand" href="/#home" aria-label="Central Public Library home">
+        <span class="brand-mark">C</span>
+        <span class="brand-name">Central <span>Public Library</span></span>
+      </a>
+      <nav class="bms-nav" id="bms-nav" aria-label="Member navigation">
+        <a href="/#home">Home</a>
+        <a href="/#catalog">Explore books</a>
+        <a href="/profile.html">My profile</a>
+        <a href="/notifications.html">Notifications</a>
+        <a class="active" href="/table-bookings.html" aria-current="page">Book a table</a>
+        <a href="/book-suggestion.html">Suggest a book</a>
+        <a href="/complaint.html">Complaints</a>
       </nav>
-      <div class="header-actions"><a class="text-button" href="/?login=1" id="service-login-link">Log in</a><a class="account-button hidden" id="service-user-link" href="/profile.html"></a><button class="text-button hidden" id="service-logout" type="button">Log out ↗</button></div>
+      <div class="bms-header-right">
+        <a class="bms-login-link" href="/?login=1" id="service-login-link">Log in</a>
+        <a class="bms-user-chip hidden" id="service-user-link" href="/profile.html"></a>
+        <button class="bms-logout hidden" id="service-logout" type="button">Sign out</button>
+      </div>
+      <button class="bms-menu-toggle" id="bms-menu-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
     </header>
-    <main>
-      <section class="profile-banner"><div><p class="eyebrow eyebrow-light"><span></span> FIND YOUR READING SPACE</p><h1>Book a <em>table.</em></h1><p>Reserve a study table on one of the library's five floors.</p></div><div class="profile-banner-mark" aria-hidden="true">C</div></section>
-      <section class="profile-main section-wrap">
-        <div class="profile-message" id="service-message" role="status" aria-live="polite"><span class="profile-loading-mark" aria-hidden="true">C</span><p>Loading table bookings...</p></div>
-        <div class="profile-content profile-service-content hidden" id="service-content">
-          <section class="profile-table-bookings" aria-labelledby="table-bookings-title">
-            <div class="profile-service-heading"><div><p class="eyebrow">MEMBER SERVICES</p><h2 id="table-bookings-title">Book a study table</h2><p>Choose a floor, date, and one-hour slot. Available tables are confirmed instantly. Each of the 5 floors has 30 tables. Book up to 30 days ahead.</p></div></div>
-            <form class="profile-table-form" id="service-table-form">
-              <label>Date<input name="date" id="service-table-date" type="date" required></label>
-              <label>Floor<select name="floor" id="service-table-floor" required><option value="1">Floor 1</option><option value="2">Floor 2</option><option value="3">Floor 3</option><option value="4">Floor 4</option><option value="5">Floor 5</option></select></label>
-              <label>Available time slot<select name="startTime" id="service-table-slot" required disabled><option value="">Choose a date and floor first</option></select></label>
-              <p class="form-message" id="service-table-message" role="status" aria-live="polite"></p>
-              <button class="button" type="submit">Confirm table <span aria-hidden="true">→</span></button>
-            </form>
-            <div class="profile-table-list-heading"><h3>Your table bookings</h3><button class="text-button" id="refresh-table-bookings" type="button">Refresh ↻</button></div>
-            <div class="profile-table-booking-list" id="service-table-list" aria-live="polite"><p class="empty-state">Loading your table bookings...</p></div>
-          </section>
+
+    <div class="bms-gate" id="service-message">
+      <div class="bms-gate-inner">
+        <div class="bms-gate-icon">🔐</div>
+        <h2>Sign in to book a table</h2>
+        <p>Reserve your personal study space at the library.</p>
+        <a class="bms-btn bms-btn-primary" href="/?login=1">Log in to continue</a>
+      </div>
+    </div>
+
+    <main class="bms-main hidden" id="service-content">
+      <section class="bms-hero">
+        <div class="bms-hero-inner">
+          <p class="bms-eyebrow">CENTRAL PUBLIC LIBRARY · STUDY SPACES</p>
+          <h1>Pick your <em>perfect spot.</em></h1>
+          <p class="bms-hero-sub">5 floors · 30 tables per floor · 1-hour slots · Book up to 30 days ahead</p>
         </div>
       </section>
+
+      <div class="bms-steps" id="bms-steps" aria-label="Booking steps">
+        <div class="bms-step active" data-step="1">
+          <span class="bms-step-num">1</span>
+          <span class="bms-step-label">Date &amp; Floor</span>
+        </div>
+        <div class="bms-step-line"></div>
+        <div class="bms-step" data-step="2">
+          <span class="bms-step-num">2</span>
+          <span class="bms-step-label">Time Slot</span>
+        </div>
+        <div class="bms-step-line"></div>
+        <div class="bms-step" data-step="3">
+          <span class="bms-step-num">3</span>
+          <span class="bms-step-label">Choose Table</span>
+        </div>
+        <div class="bms-step-line"></div>
+        <div class="bms-step" data-step="4">
+          <span class="bms-step-num">4</span>
+          <span class="bms-step-label">Confirm</span>
+        </div>
+      </div>
+
+      <div class="bms-booking-layout">
+        <div class="bms-left">
+
+          <!-- STEP 1 -->
+          <section class="bms-panel" id="bms-step-panel-1">
+            <h2 class="bms-panel-title"><span class="bms-panel-num">1</span> When &amp; Where?</h2>
+            <div class="bms-field-row">
+              <div class="bms-field">
+                <label class="bms-label" for="bms-date">Date</label>
+                <input class="bms-input" type="date" id="bms-date" name="date" required>
+              </div>
+            </div>
+            <p class="bms-label" style="margin-bottom:10px">Choose a Floor</p>
+            <div class="bms-floor-cards" id="bms-floor-cards">
+              <button class="bms-floor-card active" data-floor="1" type="button">
+                <span class="bms-floor-icon">📚</span>
+                <span class="bms-floor-name">Floor 1</span>
+                <span class="bms-floor-desc">Ground Level</span>
+              </button>
+              <button class="bms-floor-card" data-floor="2" type="button">
+                <span class="bms-floor-icon">📰</span>
+                <span class="bms-floor-name">Floor 2</span>
+                <span class="bms-floor-desc">Periodicals</span>
+              </button>
+              <button class="bms-floor-card" data-floor="3" type="button">
+                <span class="bms-floor-icon">🔍</span>
+                <span class="bms-floor-name">Floor 3</span>
+                <span class="bms-floor-desc">Reference</span>
+              </button>
+              <button class="bms-floor-card" data-floor="4" type="button">
+                <span class="bms-floor-icon">🤫</span>
+                <span class="bms-floor-name">Floor 4</span>
+                <span class="bms-floor-desc">Quiet Study</span>
+              </button>
+              <button class="bms-floor-card" data-floor="5" type="button">
+                <span class="bms-floor-icon">🔬</span>
+                <span class="bms-floor-name">Floor 5</span>
+                <span class="bms-floor-desc">Research Hub</span>
+              </button>
+            </div>
+            <button class="bms-btn bms-btn-primary" id="bms-to-step2" type="button">Check Availability</button>
+          </section>
+
+          <!-- STEP 2 -->
+          <section class="bms-panel hidden" id="bms-step-panel-2">
+            <button class="bms-back-link" id="bms-back-to-1" type="button">← Back</button>
+            <h2 class="bms-panel-title"><span class="bms-panel-num">2</span> Select a Time Slot</h2>
+            <p class="bms-panel-sub" id="bms-slot-subtitle">Choose a 1-hour slot for your study session.</p>
+            <div class="bms-slot-loading hidden" id="bms-slot-loading">
+              <div class="bms-spinner"></div>
+              <span>Loading available slots…</span>
+            </div>
+            <div class="bms-slot-grid" id="bms-slot-grid" role="radiogroup" aria-label="Available time slots"></div>
+            <p class="bms-error hidden" id="bms-slot-error" role="alert"></p>
+          </section>
+
+          <!-- STEP 3 -->
+          <section class="bms-panel hidden" id="bms-step-panel-3">
+            <button class="bms-back-link" id="bms-back-to-2" type="button">← Back</button>
+            <h2 class="bms-panel-title"><span class="bms-panel-num">3</span> Pick Your Table</h2>
+            <p class="bms-panel-sub" id="bms-grid-subtitle">Tap a green table to select it.</p>
+            <div class="bms-legend">
+              <span class="bms-legend-item"><span class="bms-seat bms-seat-available" aria-hidden="true"></span> Available</span>
+              <span class="bms-legend-item"><span class="bms-seat bms-seat-taken" aria-hidden="true"></span> Taken</span>
+              <span class="bms-legend-item"><span class="bms-seat bms-seat-selected" aria-hidden="true"></span> Your pick</span>
+            </div>
+            <div class="bms-desk-label" aria-hidden="true">📖 READING FLOOR</div>
+            <div class="bms-seat-grid" id="bms-seat-grid" role="group" aria-label="Table selection grid"></div>
+            <p class="bms-grid-note">Tables are arranged across the floor. Select any available (green) table.</p>
+          </section>
+
+          <!-- STEP 4 -->
+          <section class="bms-panel hidden" id="bms-step-panel-4">
+            <button class="bms-back-link" id="bms-back-to-3" type="button">← Back</button>
+            <h2 class="bms-panel-title"><span class="bms-panel-num">4</span> Confirm Booking</h2>
+            <div class="bms-confirm-card" id="bms-confirm-card"></div>
+            <p class="bms-error hidden" id="bms-confirm-error" role="alert"></p>
+            <div class="bms-confirm-actions">
+              <button class="bms-btn bms-btn-primary" id="bms-confirm-btn" type="button">Confirm Table Booking</button>
+            </div>
+          </section>
+
+          <!-- SUCCESS -->
+          <section class="bms-panel bms-success hidden" id="bms-success-panel">
+            <div class="bms-success-inner">
+              <div class="bms-success-anim" aria-hidden="true">✅</div>
+              <h2>Table Booked!</h2>
+              <p id="bms-success-message"></p>
+              <div class="bms-ticket" id="bms-ticket"></div>
+              <div class="bms-success-actions">
+                <button class="bms-btn bms-btn-outline" id="bms-book-another" type="button">Book Another Table</button>
+                <a class="bms-btn bms-btn-primary" href="/profile.html">My Profile</a>
+              </div>
+            </div>
+          </section>
+
+        </div><!-- /.bms-left -->
+
+        <!-- Right sidebar -->
+        <aside class="bms-right">
+          <div class="bms-summary-card" id="bms-summary-card">
+            <p class="bms-summary-title">Your Selection</p>
+            <div class="bms-summary-row">
+              <span class="bms-sum-label">Date</span>
+              <span class="bms-sum-val" id="bms-sum-date-val">—</span>
+            </div>
+            <div class="bms-summary-row">
+              <span class="bms-sum-label">Floor</span>
+              <span class="bms-sum-val" id="bms-sum-floor-val">—</span>
+            </div>
+            <div class="bms-summary-row">
+              <span class="bms-sum-label">Time</span>
+              <span class="bms-sum-val" id="bms-sum-slot-val">—</span>
+            </div>
+            <div class="bms-summary-row">
+              <span class="bms-sum-label">Table</span>
+              <span class="bms-sum-val" id="bms-sum-table-val">—</span>
+            </div>
+            <div class="bms-summary-free">Free · No charges apply</div>
+          </div>
+
+          <div class="bms-my-bookings">
+            <div class="bms-my-bookings-head">
+              <p class="bms-summary-title">My Bookings</p>
+              <button class="bms-text-btn" id="refresh-table-bookings" type="button">Refresh ↻</button>
+            </div>
+            <div class="bms-booking-list" id="service-table-list" aria-live="polite">
+              <p class="bms-empty">Loading your bookings…</p>
+            </div>
+          </div>
+        </aside>
+
+      </div><!-- /.bms-booking-layout -->
     </main>
-    <footer class="site-footer"><div class="footer-bottom"><span>© <span class="service-year"></span> Central Public Library</span><span>KNOWLEDGE IS FOR EVERYONE.</span><a href="/profile.html">MY PROFILE ↑</a></div></footer>
+
+    <div class="bms-toast" id="bms-toast" role="status" aria-live="polite"></div>
+
+    <footer class="bms-footer">
+      <span>© <span class="service-year"></span> Central Public Library</span>
+      <span>KNOWLEDGE IS FOR EVERYONE.</span>
+      <a href="/profile.html">MY PROFILE ↑</a>
+    </footer>
   </body>
 </html>

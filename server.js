@@ -313,7 +313,13 @@ async function releaseBookCopy(bookId) {
 }
 
 app.disable("x-powered-by");
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      imgSrc: ["'self'", "data:", "https:"]
+    }
+  }
+}));
 app.use(express.json({ limit: "20kb" }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
